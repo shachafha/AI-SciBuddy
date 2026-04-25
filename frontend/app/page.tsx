@@ -12,7 +12,7 @@ import { ScientistReviewPanel } from "@/components/scientist-review-panel";
 import { chatAboutLiterature, generatePlan, launchExecutionPlan, runLiteratureQC } from "@/lib/api";
 import { demoExperimentPlan, demoLiteratureQC } from "@/lib/demo-data";
 import type { ChatMessage, ExecutionPlan, ExperimentPlan, LiteratureQC, ScientistFeedback } from "@/lib/types";
-import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, FlaskConical, Link2, Rocket, SendHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, Link2, Rocket, SendHorizontal } from "lucide-react";
 
 function LabBackground({ mouse }: { mouse: { x: number; y: number } }) {
   const style = {
@@ -75,7 +75,6 @@ export default function Home() {
     setExecutionPlan(null);
     setAppliedFeedback(null);
     setLaunchError(null);
-
     setChatMessages([{ role: "assistant", content: "Analyzing your hypothesis and searching for related work..." }]);
 
     const newQc = await performQC(activeHypothesis);
@@ -448,19 +447,6 @@ export default function Home() {
                     placeholder={hypothesis ? "Ask a follow up or tell me to refine the hypothesis..." : "Enter your scientific hypothesis here..."}
                   />
                 </Card>
-
-                {plan ? (
-                  <div className="mb-2 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-                    <div className="flex items-center gap-2 text-sm font-medium text-emerald-900">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                      You have an active experiment plan for the current hypothesis.
-                    </div>
-                    <Button onClick={() => setViewMode("plan")} className="h-9 bg-emerald-600 px-4 text-sm text-white shadow-sm hover:bg-emerald-700">
-                      View Plan
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : null}
 
                 <RelatedWorkSection
                   qc={qc}
