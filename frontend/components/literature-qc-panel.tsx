@@ -1,5 +1,5 @@
 import { Badge, Card } from "@/components/ui";
-import type { LiteratureQC, ReferenceRubricScore } from "@/lib/types";
+import type { LiteratureQC, ReferenceRubricScore, TavilyEvidence, LiteratureReference } from "@/lib/types";
 import { ExternalLink, Loader2, Radar } from "lucide-react";
 
 const signalStyles = {
@@ -14,14 +14,36 @@ const signalLabels = {
   exact_match_found: "Exact match found",
 };
 
+const sourceTypeStyles: Record<string, string> = {
+  exact_hypothesis: "bg-purple-100 text-purple-800 border-purple-200",
+  similar_paper: "bg-blue-100 text-blue-800 border-blue-200",
+  protocol: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  validation: "bg-amber-100 text-amber-800 border-amber-200",
+  safety: "bg-rose-100 text-rose-800 border-rose-200",
+  materials: "bg-slate-100 text-slate-800 border-slate-200",
+  literature: "bg-indigo-100 text-indigo-800 border-indigo-200",
+};
+
+const priorityMap: Record<string, number> = {
+  exact_hypothesis: 1,
+  similar_paper: 2,
+  protocol: 3,
+  validation: 4,
+  safety: 5,
+  materials: 6,
+  literature: 7,
+};
+
 function RubricMini({ score }: { score?: ReferenceRubricScore }) {
-  if (!score) return null;
+  if (!score) {
+    return <div className="mt-4 text-xs italic text-muted-foreground bg-muted/20 p-3 rounded-lg border border-border/60">No rubric score available.</div>;
+  }
   const parts = [
     ["Intervention", score.intervention_match],
     ["System", score.system_match],
     ["Outcome", score.outcome_match],
     ["Method", score.method_protocol_match],
-    ["Threshold/control", score.threshold_control_match],
+    ["Threshold", score.threshold_control_match],
   ];
 
   return (
@@ -34,11 +56,11 @@ function RubricMini({ score }: { score?: ReferenceRubricScore }) {
         {parts.map(([label, value]) => (
           <div key={label as string} className="rounded-md border border-border/60 bg-white p-2 shadow-sm flex flex-col justify-between">
             <div className="font-mono font-bold text-foreground mb-1">{value}/2</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground leading-tight">{label}</div>
+            <div className="text-[9px] uppercase tracking-wider text-muted-foreground leading-tight truncate">{label}</div>
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground bg-white/50 p-2 rounded border border-border/40">{score.rationale}</p>
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground bg-white/50 p-2 rounded border border-border/40 italic">{score.rationale}</p>
     </div>
   );
 }
@@ -71,6 +93,49 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
       </Card>
     );
   }
+
+  // Merge references and search_results
+  type MergedRef = {
+    url: string;
+    title: string;
+    sourceType: string;
+    summary: string;
+    mock: boolean;
+  };
+
+  const mergedMap = new Map<string, MergedRef>();
+
+  // Add references first
+  qc.references.forEach((ref) => {
+    mergedMap.set(ref.url, {
+      url: ref.url,
+      title: ref.title,
+      sourceType: ref.evidence_type?.toLowerCase().replace(" ", "_") || "literature",
+      summary: ref.relevance_reason,
+      mock: false,
+    });
+  });
+
+  // Add search results, avoiding duplicates by url
+  if (qc.search_results) {
+    qc.search_results.forEach((res) => {
+      if (!mergedMap.has(res.url)) {
+        mergedMap.set(res.url, {
+          url: res.url,
+          title: res.title,
+          sourceType: res.source_type || "literature",
+          summary: res.snippet || res.content.substring(0, 150) + "...",
+          mock: res.mock || false,
+        });
+      }
+    });
+  }
+
+  const mergedRefs = Array.from(mergedMap.values()).sort((a, b) => {
+    const pA = priorityMap[a.sourceType] || 99;
+    const pB = priorityMap[b.sourceType] || 99;
+    return pA - pB;
+  });
 
   return (
     <Card className={`shadow-soft border-border/60 bg-white/90 ${compact ? "p-0 border-0 shadow-none bg-transparent" : "p-6"}`}>
@@ -106,7 +171,7 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
               .map(([key, value]) => (
                 <div key={key} className="bg-white border border-primary/10 rounded-md px-3 py-2 text-sm shadow-sm flex flex-col gap-1">
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">{key.replaceAll("_", " ")}</span>
-                  <span className="font-medium text-slate-800">{value}</span>
+                  <span className="font-medium text-slate-800">{value as string}</span>
                 </div>
               ))}
           </div>
@@ -119,28 +184,34 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
         </div>
       ) : null}
       
-      <div className="mt-6 space-y-4">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Source Trace Analysis</h4>
-        {qc.references.map((reference) => (
-          <a
-            key={reference.url}
-            href={reference.url}
-            target="_blank"
-            rel="noreferrer"
-            className="block rounded-xl border border-border/60 bg-white p-5 transition-all hover:border-primary/40 hover:shadow-md group"
-          >
-            <div className="flex items-start justify-between gap-3 text-sm font-bold text-slate-800 group-hover:text-primary transition-colors">
-              <span className="leading-tight">{reference.title}</span>
-              <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 opacity-50 group-hover:opacity-100" />
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-200 font-mono text-[10px] uppercase tracking-wider">{reference.source}</Badge>
-              <Badge className="bg-primary/10 text-primary hover:bg-primary/20 font-mono text-[10px] uppercase tracking-wider border-primary/20">{reference.evidence_type}</Badge>
-            </div>
-            <p className="mt-4 text-sm leading-relaxed text-muted-foreground border-l-2 border-primary/20 pl-3 italic">{reference.relevance_reason}</p>
-            <RubricMini score={qc.reference_scores?.find((score) => score.url === reference.url)} />
-          </a>
-        ))}
+      <div className="mt-8 space-y-5">
+        <h4 className="text-sm font-black tracking-tight text-slate-900 mb-4 border-b border-border/40 pb-2">Source Trace Analysis</h4>
+        {mergedRefs.map((ref) => {
+          const scoreMatch = qc.reference_scores?.find(s => s.url === ref.url || s.title === ref.title);
+          const badgeClass = sourceTypeStyles[ref.sourceType] || "bg-gray-100 text-gray-800 border-gray-200";
+          
+          return (
+            <a
+              key={ref.url}
+              href={ref.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block rounded-xl border border-border/60 bg-white p-5 transition-all hover:border-primary/40 hover:shadow-md group"
+            >
+              <div className="flex items-start justify-between gap-3 text-sm font-bold text-slate-800 group-hover:text-primary transition-colors">
+                <span className="leading-tight text-base">{ref.title}</span>
+                <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 opacity-50 group-hover:opacity-100" />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge className={`font-mono text-[10px] uppercase tracking-wider border ${badgeClass}`}>{ref.sourceType.replace("_", " ")}</Badge>
+                {ref.mock ? <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-mono text-[10px] uppercase tracking-wider">MOCK SEARCH RESULT</Badge> : null}
+              </div>
+              <p className="mt-4 text-sm leading-relaxed text-slate-600 italic">"{ref.summary}"</p>
+              
+              <RubricMini score={scoreMatch} />
+            </a>
+          );
+        })}
       </div>
     </Card>
   );
