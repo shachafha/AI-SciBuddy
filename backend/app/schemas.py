@@ -1,4 +1,4 @@
-from typing import Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeVar, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -137,6 +137,59 @@ class SourceCitation(StrictModel):
     source: str
 
 
+class LabFieldDef(StrictModel):
+    name: str
+    label: str
+    field_type: Literal["text", "number", "select", "boolean"]
+    options: list[str] | None = None
+    value: Any | None = None
+    editable: bool = True
+
+
+class LabNodeMeta(StrictModel):
+    confidence: float = Field(..., ge=0, le=1)
+    supporting_sources: list[str]
+    assumptions: list[str]
+
+
+class LabNodeState(StrictModel):
+    status: Literal["draft", "reviewed", "flagged", "approved"] = "draft"
+    version: int = 1
+    last_reviewer_notes: str | None = None
+
+
+class LabNodeLearnContent(StrictModel):
+    what_is_this: str
+    why_important: str
+    connection_to_hypothesis: str
+    common_alternatives: list[str]
+    risks: list[str]
+
+
+class LabNode(StrictModel):
+    id: str
+    node_type: Literal["material", "process", "assay", "validation"]
+    label: str
+    description: str
+    fields: list[LabFieldDef] = Field(default_factory=list)
+    metadata: LabNodeMeta
+    state: LabNodeState = Field(default_factory=LabNodeState)
+    learn_content: LabNodeLearnContent | None = None
+
+
+class LabEdge(StrictModel):
+    source: str
+    target: str
+    label: str | None = None
+    condition: str | None = None
+
+
+class LabView(StrictModel):
+    version: int = 1
+    nodes: list[LabNode]
+    edges: list[LabEdge]
+
+
 class ExperimentPlan(StrictModel):
     title: str
     hypothesis: str
@@ -148,6 +201,7 @@ class ExperimentPlan(StrictModel):
     validation: GroundedSection[list[ValidationItem]]
     risks_and_assumptions: GroundedSection[list[str]]
     safety_and_ethics_notes: GroundedSection[list[str]]
+    lab_workflow: LabView | None = None
     source_trace: list[SourceCitation]
     confidence_notes: GroundedSection[str]
     updated_sections: list[str] = Field(default_factory=list)
@@ -185,3 +239,19 @@ class ChatAboutLiteratureResponse(StrictModel):
     message: ChatMessage
     suggested_hypothesis: str | None = None
     should_refresh_qc: bool = False
+
+class LabViewRegenerateRequest(StrictModel):
+    """Request body for POST /api/regenerate-from-lab-view.
+
+    The edited_lab_view is the canonical source of truth for this revision.
+    Provenance (AI-generated vs user-edited) is derived from node.state.version:
+      version == 1 → AI-generated (unchanged)
+      version  > 1 → user-edited
+    """
+
+    hypothesis: str = Field(..., min_length=8)
+    current_plan: ExperimentPlan
+    edited_lab_view: LabView
+    scientist_feedback: list[ScientistFeedback] = Field(default_factory=list)
+    # Optional free-text instructions from the user, e.g. "focus on budget cuts"
+    user_notes: str | None = None

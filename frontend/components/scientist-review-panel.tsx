@@ -7,7 +7,7 @@ import type { ExperimentPlan, FeedbackRecord, ScientistFeedback } from "@/lib/ty
 import { MessageSquareText, RefreshCw, Send, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const sections = ["summary", "protocol", "materials", "budget", "timeline", "validation", "risks", "sources"];
+const sections = ["summary", "protocol", "materials", "budget", "timeline", "validation", "risks", "sources", "lab_workflow"];
 
 const quickTags = [
   "unrealistic timeline",
@@ -37,6 +37,17 @@ export function ScientistReviewPanel({
 
   useEffect(() => {
     getFeedback().then(setHistory).catch(() => setHistory([]));
+
+    const handleFlagNode = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.node) {
+        setSection("lab_workflow");
+        setCorrection((prev) => prev ? `${prev}\n\nFlagged node [${detail.node.label}]: ` : `Flagged node [${detail.node.label}]: `);
+        document.getElementById("scientist-review-panel")?.scrollIntoView({ behavior: "smooth" });
+      }
+    };
+    window.addEventListener("flag-node", handleFlagNode);
+    return () => window.removeEventListener("flag-node", handleFlagNode);
   }, []);
 
   async function saveFeedback(event: FormEvent) {
@@ -75,7 +86,7 @@ export function ScientistReviewPanel({
   }
 
   return (
-    <Card className="mt-6 border-accent/20 bg-gradient-to-br from-white to-accent/5 overflow-hidden shadow-soft">
+    <Card id="scientist-review-panel" className="mt-6 border-accent/20 bg-gradient-to-br from-white to-accent/5 overflow-hidden shadow-soft">
       <div className="border-b border-border/60 bg-white/80 p-5 xl:p-8">
         <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-accent">
           <MessageSquareText className="h-4 w-4" />

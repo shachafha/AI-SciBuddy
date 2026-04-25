@@ -9,21 +9,25 @@ import {
   Clock3,
   FlaskConical,
   Link2,
+  RefreshCw,
   ShieldAlert,
   TestTube2,
   CheckCircle2,
   AlertTriangle,
   ExternalLink,
   Radar,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GroundedSection } from "@/lib/types";
 
 import { LiteratureQCPanel } from "./literature-qc-panel";
+import { LabViewCanvas } from "./lab-view-canvas";
 
-type PlanTab = "protocol" | "materials" | "budget" | "timeline" | "validation" | "risks" | "sources" | "literature";
+type PlanTab = "protocol" | "materials" | "budget" | "timeline" | "validation" | "risks" | "sources" | "literature" | "lab_view";
 
 const tabs: { id: PlanTab; label: string; icon: ElementType }[] = [
+  { id: "lab_view", label: "Lab View", icon: Network },
   { id: "protocol", label: "Protocol", icon: FlaskConical },
   { id: "literature", label: "Literature", icon: Radar },
   { id: "materials", label: "Materials", icon: Beaker },
@@ -54,7 +58,19 @@ function SectionMeta({ section, className }: { section: GroundedSection<unknown>
   );
 }
 
-export function ExperimentPlanViewer({ plan, loading, mock, qc }: { plan: ExperimentPlan | null; loading?: boolean; mock?: boolean; qc?: LiteratureQC | null }) {
+export function ExperimentPlanViewer({
+  plan,
+  loading,
+  mock,
+  qc,
+  onRegenerate,
+}: {
+  plan: ExperimentPlan | null;
+  loading?: boolean;
+  mock?: boolean;
+  qc?: LiteratureQC | null;
+  onRegenerate?: (newPlan: ExperimentPlan) => void;
+}) {
   const [activeTab, setActiveTab] = useState<PlanTab>("protocol");
 
   if (loading || !plan) {
@@ -143,7 +159,27 @@ export function ExperimentPlanViewer({ plan, loading, mock, qc }: { plan: Experi
         </div>
 
         <div className="flex-1 bg-slate-50/50 p-5 xl:p-8 min-w-0">
-          <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+          <div className="animate-in fade-in slide-in-from-right-4 duration-500 h-full">
+            {activeTab === "lab_view" ? (
+              <div className="flex flex-col h-full gap-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-black tracking-tight">Laboratory Workflow</h3>
+                  {plan.updated_sections && plan.updated_sections.length > 0 && (
+                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-full">
+                      <RefreshCw className="w-3 h-3" />
+                      Plan updated · {plan.updated_sections.join(", ")}
+                    </div>
+                  )}
+                </div>
+                <LabViewCanvas
+                  workflow={plan.lab_workflow}
+                  plan={plan}
+                  hypothesis={plan.hypothesis}
+                  onRegenerate={onRegenerate}
+                />
+              </div>
+            ) : null}
+
             {activeTab === "protocol" ? (
               <div className="space-y-4">
                 <h3 className="text-lg font-black tracking-tight mb-4">Experimental Protocol</h3>

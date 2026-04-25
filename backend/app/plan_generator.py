@@ -18,6 +18,7 @@ from .tavily_client import (
     search_protocols,
     search_validation_methods,
 )
+from .lab_view_generator import generate_lab_view
 
 
 def _as_evidence(result: TavilySearchResult | TavilyEvidence) -> TavilyEvidence:
@@ -266,7 +267,7 @@ Return one valid JSON object with exactly this shape:
     "supporting_sources": ["URL from provided Tavily evidence"],
     "assumptions": ["string"]
   },
-  "safety_and_ethics_notes": {
+    "safety_and_ethics_notes": {
     "content": ["string"],
     "confidence": 0,
     "supporting_sources": ["URL from provided Tavily evidence"],
@@ -420,9 +421,12 @@ Requirements:
 
     plan = _ollama_generate(prompt)
     if plan is None:
-        return _mock_plan(hypothesis, qc, evidence, constraints, feedback)
-
-    return _ground_plan(plan, qc, evidence)
+        plan = _mock_plan(hypothesis, qc, evidence, constraints, feedback)
+    else:
+        plan = _ground_plan(plan, qc, evidence)
+        
+    plan.lab_workflow = generate_lab_view(plan)
+    return plan
 
 
 def regenerate_plan_with_feedback(hypothesis: str, current_plan: ExperimentPlan, feedback: ScientistFeedback) -> ExperimentPlan:
@@ -448,7 +452,9 @@ List the section name that was modified in updated_sections.
 
     plan = _ollama_generate(prompt)
     if plan is not None:
-        return _ground_plan(plan, None, [])
+        plan = _ground_plan(plan, None, [])
+        plan.lab_workflow = generate_lab_view(plan)
+        return plan
 
     revised = current_plan.model_copy(deep=True)
     revised.confidence_notes.content = f"{revised.confidence_notes.content} Updated based on expert feedback in demo mode from {feedback.section}: {feedback.correction}"
@@ -461,4 +467,88 @@ List the section name that was modified in updated_sections.
         url="#feedback",
         source="Scientist Review"
     ))
+    return revised
+
+
+def regenerate_plan_from_lab_view(request: "LabViewRegenerateRequest") -> ExperimentPlan:
+    """Regenerate an ExperimentPlan driven by the scientist-edited LabView graph.
+
+    Provenance is derived server-side from node.state.version (not trusted from
+    the frontend) to ensure the safety rules cannot be bypassed by crafted payloads.
+
+    Falls back to a structured mock if Ollama is unavailable.
+    """
+    from .lab_regen_prompt import build_lab_regen_prompt, diff_summary
+    from .schemas import LabViewRegenerateRequest  # local import avoids circular
+
+    prompt = build_lab_regen_prompt(request, _plan_schema_prompt())
+    plan = _ollama_generate(prompt)
+
+    if plan is not None:
+        plan = _ground_plan(plan, None, [s for s in request.current_plan.source_trace])
+        plan.lab_workflow = request.edited_lab_view  # preserve exact edited graph
+        plan.lab_workflow = request.edited_lab_view.__class__(
+            version=(request.edited_lab_view.version + 1),
+            nodes=request.edited_lab_view.nodes,
+            edges=request.edited_lab_view.edges,
+        )
+        return plan
+
+    # --- Structured fallback (no LLM) ---
+    summary = diff_summary(request)
+    revised = request.current_plan.model_copy(deep=True)
+
+    # Annotate confidence_notes with diff summary
+    revised.confidence_notes.content = (
+        f"{revised.confidence_notes.content} "
+        f"Graph-driven revision applied ({summary}); LLM unavailable — demo fallback."
+    )
+
+    # Surface each user-edited node as a risk/note for PI review
+    edited_nodes = [n for n in request.edited_lab_view.nodes if n.state.version > 1]
+    added_nodes  = [
+        n for n in request.edited_lab_view.nodes
+        if n.id not in {x.id for x in (request.current_plan.lab_workflow.nodes if request.current_plan.lab_workflow else [])}
+    ]
+    for n in edited_nodes:
+        revised.risks_and_assumptions.content.append(
+            f"Graph edit (user-modified): [{n.label}] — {n.description}"
+        )
+    for n in added_nodes:
+        revised.risks_and_assumptions.content.append(
+            f"Graph edit (user-added node): [{n.label}] — {n.description}"
+        )
+
+    # Scientist feedback
+    for fb in request.scientist_feedback:
+        revised.risks_and_assumptions.content.append(
+            f"Scientist correction [{fb.section}]: {fb.correction}"
+        )
+        if fb.section not in revised.updated_sections:
+            revised.updated_sections.append(fb.section)
+
+    if request.user_notes:
+        revised.risks_and_assumptions.content.append(
+            f"User notes for regen: {request.user_notes}"
+        )
+
+    # Safety gate always present
+    revised.safety_and_ethics_notes.content.append(
+        "Graph-driven revision — PI review required before execution."
+    )
+
+    revised.source_trace.append(SourceCitation(
+        title="Lab View Graph Revision",
+        url="#lab-view-edit",
+        source="User Graph Edit"
+    ))
+
+    # Bump lab_workflow version, preserve edited graph
+    revised.lab_workflow = request.edited_lab_view.__class__(
+        version=(request.edited_lab_view.version + 1),
+        nodes=request.edited_lab_view.nodes,
+        edges=request.edited_lab_view.edges,
+    )
+
+    revised.updated_sections = list(set(revised.updated_sections + ["risks_and_assumptions", "confidence_notes"]))
     return revised

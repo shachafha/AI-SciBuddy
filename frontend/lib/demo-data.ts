@@ -1,4 +1,4 @@
-import type { ExperimentPlan, LiteratureQC } from "./types";
+import type { ExperimentPlan, LabView, LiteratureQC } from "./types";
 
 export const sampleHypotheses = [
   {
@@ -83,6 +83,352 @@ function section<T>(content: T, sources: string[], confidence = 0.72, assumption
   return { content, confidence, supporting_sources: sources, assumptions };
 }
 
+// ---------------------------------------------------------------------------
+// Rich domain-aware LabView graphs
+// ---------------------------------------------------------------------------
+
+const LAB_VIEWS: Record<keyof typeof references, LabView> = {
+  biosensor: {
+    version: 1,
+    nodes: [
+      {
+        id: "bio-1",
+        node_type: "process",
+        label: "Literature Review",
+        description: "Survey adjacent CRP immunosensor literature and identify protocol gaps.",
+        fields: [],
+        metadata: {
+          confidence: 0.88,
+          supporting_sources: ["https://example.org/paper-crp-immunosensor"],
+          assumptions: ["PubMed and Tavily evidence is representative for current methods."],
+        },
+        state: { status: "reviewed", version: 1 },
+        learn_content: {
+          what_is_this: "A systematic survey of existing CRP biosensor literature to frame the novelty claim.",
+          why_important: "Establishes prior art baseline, prevents duplication, and identifies the most productive design space.",
+          connection_to_hypothesis: "Confirms that paper-based electrochemical CRP detection is adjacent but not identical to prior work, supporting the novelty framing.",
+          common_alternatives: ["Direct empirical screening without review", "Scoping review via meta-analysis tool"],
+          risks: ["Missing recent preprints in non-indexed journals", "Over-relying on a single search engine"],
+        },
+      },
+      {
+        id: "bio-2",
+        node_type: "material",
+        label: "Paper Substrate & Reagents",
+        description: "Select and procure nitrocellulose or carbon-ink paper substrate and anti-CRP capture antibody.",
+        fields: [],
+        metadata: {
+          confidence: 0.62,
+          supporting_sources: ["https://example.org/crp-point-of-care-design"],
+          assumptions: ["Anti-CRP antibody with documented KD is commercially available.", "Paper substrate spec is stable across batches."],
+        },
+        state: { status: "flagged", version: 2 },
+        learn_content: {
+          what_is_this: "The physical sensing scaffold and capture chemistry that define the core detection mechanism.",
+          why_important: "Material quality determines limit-of-detection and assay reproducibility.",
+          connection_to_hypothesis: "Anti-CRP capture antibody is the specific binding element that enables CRP quantification from serum.",
+          common_alternatives: ["Aptamer-based capture chemistry", "Lateral flow strip format", "Screen-printed electrode"],
+          risks: ["Batch-to-batch antibody lot variation", "Substrate hydrophilicity inconsistency", "Antigen cross-reactivity"],
+        },
+      },
+      {
+        id: "bio-3",
+        node_type: "assay",
+        label: "Electrochemical Calibration",
+        description: "Establish dose-response curve using spiked CRP standards across the clinical range.",
+        fields: [],
+        metadata: {
+          confidence: 0.76,
+          supporting_sources: ["https://example.org/paper-crp-immunosensor", "https://example.org/crp-point-of-care-design"],
+          assumptions: ["Spiked serum matrix is representative of clinical samples."],
+        },
+        state: { status: "draft", version: 1 },
+        learn_content: {
+          what_is_this: "The quantitative characterization of the sensor response as a function of CRP concentration.",
+          why_important: "Without a calibration curve, no clinical interpretation of signals is possible.",
+          connection_to_hypothesis: "Proves the sensor can resolve the clinically relevant range stated in the hypothesis.",
+          common_alternatives: ["Optical (colorimetric) readout", "Impedance spectroscopy", "Lateral flow visual interpretation"],
+          risks: ["Matrix effects from non-target serum components", "Non-linearity at high CRP concentrations"],
+        },
+      },
+      {
+        id: "bio-4",
+        node_type: "validation",
+        label: "Clinical Sample Validation",
+        description: "Test sensor on blinded patient-derived serum samples; compare to gold-standard immunoturbidimetry.",
+        fields: [],
+        metadata: {
+          confidence: 0.81,
+          supporting_sources: ["https://example.org/crp-point-of-care-design"],
+          assumptions: ["Comparator method (immunoturbidimetry) is validated and available at partner site."],
+        },
+        state: { status: "draft", version: 1 },
+        learn_content: {
+          what_is_this: "Head-to-head comparison of biosensor output against a validated clinical reference method.",
+          why_important: "Provides translational evidence that the sensor is fit for clinical decision-making.",
+          connection_to_hypothesis: "Directly tests the core claim: the biosensor can detect clinically relevant CRP ranges in real samples.",
+          common_alternatives: ["ELISA as comparator", "Simoa digital ELISA", "Fully automated analyzer comparison"],
+          risks: ["Sample volume limitations", "Pre-analytical variability (freeze-thaw cycles)", "Ethics approval timeline"],
+        },
+      },
+      {
+        id: "bio-5",
+        node_type: "process",
+        label: "PI Review & Decision Gate",
+        description: "Principal Investigator reviews all results and assumptions before any next-stage commitment.",
+        fields: [],
+        metadata: {
+          confidence: 0.95,
+          supporting_sources: ["https://example.org/crp-point-of-care-design"],
+          assumptions: ["PI review is a mandatory safety gate."],
+        },
+        state: { status: "reviewed", version: 1 },
+        learn_content: {
+          what_is_this: "A formal checkpoint where qualified scientific leadership reviews data, assumptions, and safety before escalation.",
+          why_important: "Prevents premature translation of unvalidated results into clinical or regulatory contexts.",
+          connection_to_hypothesis: "Ensures all hypothesis claims are grounded before any public claim is made.",
+          common_alternatives: ["External scientific advisory board review", "Peer review manuscript submission"],
+          risks: ["Reviewer availability delays", "Conflicting interpretations across reviewers"],
+        },
+      },
+    ],
+    edges: [
+      { source: "bio-1", target: "bio-2", label: "design confirmed", condition: null },
+      { source: "bio-2", target: "bio-3", label: "reagents procured", condition: null },
+      { source: "bio-3", target: "bio-4", label: "calibration passed", condition: null },
+      { source: "bio-4", target: "bio-5", label: "results ready", condition: null },
+    ],
+  },
+
+  hela: {
+    version: 1,
+    nodes: [
+      {
+        id: "hela-1",
+        node_type: "process",
+        label: "Literature Survey",
+        description: "Review trehalose-based cryoprotection literature and comparator outcomes.",
+        fields: [],
+        metadata: {
+          confidence: 0.86,
+          supporting_sources: ["https://example.org/trehalose-cryoprotection-review"],
+          assumptions: ["Prior HeLa cryoprotection literature is accessible and comparable."],
+        },
+        state: { status: "reviewed", version: 1 },
+        learn_content: {
+          what_is_this: "A structured review of published trehalose cryoprotection approaches for mammalian cell lines.",
+          why_important: "Establishes whether trehalose pretreatment is novel for HeLa or already well-characterized.",
+          connection_to_hypothesis: "Identifies the gap that trehalose-alone or DMSO-alone does not fully protect HeLa post-thaw.",
+          common_alternatives: ["Systematic review via Covidence", "Meta-analysis of viability endpoints"],
+          risks: ["Publication bias toward positive outcomes", "Lab-specific protocol variation across studies"],
+        },
+      },
+      {
+        id: "hela-2",
+        node_type: "material",
+        label: "Cell Line & Reagent Sourcing",
+        description: "Authenticate HeLa cell stock and procure trehalose and cryoprotectant reagents from vetted suppliers.",
+        fields: [],
+        metadata: {
+          confidence: 0.70,
+          supporting_sources: ["https://example.org/trehalose-cryoprotection-review"],
+          assumptions: ["Authenticated HeLa from ATCC or institutional bank is available."],
+        },
+        state: { status: "draft", version: 1 },
+        learn_content: {
+          what_is_this: "Acquisition of authenticated cell stocks and high-purity cryoprotective agents.",
+          why_important: "Mycoplasma contamination or unauthenticated cell lines invalidate all downstream results.",
+          connection_to_hypothesis: "Ensures the experimental model matches the biological system named in the hypothesis.",
+          common_alternatives: ["Use existing in-house passage stocks", "Outsource cryopreservation to core facility"],
+          risks: ["Passage number drift affecting phenotype", "Reagent purity inconsistency", "Cold chain management"],
+        },
+      },
+      {
+        id: "hela-3",
+        node_type: "assay",
+        label: "Cryopreservation Protocol Setup",
+        description: "Define conceptual freezing and thawing ramp parameters for trehalose vs. standard control groups.",
+        fields: [],
+        metadata: {
+          confidence: 0.65,
+          supporting_sources: ["https://example.org/trehalose-cryoprotection-review", "https://example.org/post-thaw-viability-validation"],
+          assumptions: ["Ramp parameters remain conceptual; final values require qualified PI approval."],
+        },
+        state: { status: "flagged", version: 2 },
+        learn_content: {
+          what_is_this: "High-level design of the freezing and thawing workflow for comparing trehalose to standard DMSO cryoprotection.",
+          why_important: "Protocol design determines whether the experiment can detect the membrane integrity differences the hypothesis predicts.",
+          connection_to_hypothesis: "The protocol is the direct operational expression of the experimental condition difference.",
+          common_alternatives: ["Controlled-rate freezer vs. isopropanol-jacketed freezing", "Vapor-phase nitrogen storage comparison"],
+          risks: ["Non-operational protocol details must not be shared without PI approval", "Ramp rate variation between labs"],
+        },
+      },
+      {
+        id: "hela-4",
+        node_type: "validation",
+        label: "Post-Thaw Viability Assay",
+        description: "Measure membrane integrity and cell viability across trehalose and comparator groups using validated readouts.",
+        fields: [],
+        metadata: {
+          confidence: 0.84,
+          supporting_sources: ["https://example.org/post-thaw-viability-validation"],
+          assumptions: ["Chosen viability assay has published validation data."],
+        },
+        state: { status: "draft", version: 1 },
+        learn_content: {
+          what_is_this: "Quantitative measurement of cell survival and membrane integrity after the thaw cycle.",
+          why_important: "Membrane integrity is the specific biological endpoint the hypothesis claims trehalose improves.",
+          connection_to_hypothesis: "Directly tests the measurable outcome: post-thaw membrane integrity and viability in HeLa.",
+          common_alternatives: ["Trypan blue exclusion", "Flow cytometry annexin-V / PI", "Resazurin metabolic assay"],
+          risks: ["Assay timing sensitivity (cells must be measured within 30 min)", "Instrument calibration drift"],
+        },
+      },
+      {
+        id: "hela-5",
+        node_type: "process",
+        label: "Safety & Ethics Review",
+        description: "Confirm biosafety level requirements for HeLa work and obtain institutional signoff.",
+        fields: [],
+        metadata: {
+          confidence: 0.92,
+          supporting_sources: ["https://example.org/trehalose-cryoprotection-review"],
+          assumptions: ["HeLa cells require BSL-2 practices per institutional IBC guidelines."],
+        },
+        state: { status: "approved", version: 1 },
+        learn_content: {
+          what_is_this: "A mandatory institutional safety review before any work with a human-derived cell line proceeds.",
+          why_important: "Human-origin cell lines require BSL-2 practices, documented risk assessment, and IBC registration.",
+          connection_to_hypothesis: "Safety compliance is a prerequisite; no hypothesis can justify bypassing biosafety requirements.",
+          common_alternatives: ["Use a non-human origin cell comparator to reduce BSL requirements"],
+          risks: ["IBC approval delays", "Undeclared mycoplasma contamination in existing stocks"],
+        },
+      },
+    ],
+    edges: [
+      { source: "hela-1", target: "hela-2", label: "design gap identified", condition: null },
+      { source: "hela-2", target: "hela-3", label: "materials ready", condition: null },
+      { source: "hela-3", target: "hela-4", label: "protocol approved", condition: null },
+      { source: "hela-4", target: "hela-5", label: "data collected", condition: null },
+    ],
+  },
+
+  solar: {
+    version: 1,
+    nodes: [
+      {
+        id: "sol-1",
+        node_type: "process",
+        label: "Absorber Candidate Review",
+        description: "Identify and rank earth-abundant chalcogenide candidates by efficiency and stability reports.",
+        fields: [],
+        metadata: {
+          confidence: 0.83,
+          supporting_sources: ["https://example.org/chalcogenide-thin-film-pv"],
+          assumptions: ["Literature PCE and stability benchmarks are reproducible across groups."],
+        },
+        state: { status: "reviewed", version: 1 },
+        learn_content: {
+          what_is_this: "A comparative ranking of candidate absorber materials (e.g. CZTS, SnS, Sb₂Se₃) based on published efficiency and stability data.",
+          why_important: "Selecting the wrong absorber family wastes fabrication budget; a literature-driven shortlist de-risks material selection.",
+          connection_to_hypothesis: "The hypothesis requires earth-abundant materials — this step identifies which candidates qualify.",
+          common_alternatives: ["High-throughput computational screening (DFT)", "Combinatorial sputtering mapping"],
+          risks: ["PCE benchmarks often lab-specific and hard to reproduce", "Open-circuit voltage deficit often underreported"],
+        },
+      },
+      {
+        id: "sol-2",
+        node_type: "material",
+        label: "Precursor & Substrate Sourcing",
+        description: "Procure high-purity chalcogenide precursors and fluorine-doped tin oxide substrates.",
+        fields: [],
+        metadata: {
+          confidence: 0.68,
+          supporting_sources: ["https://example.org/chalcogenide-thin-film-pv"],
+          assumptions: ["Target precursor purity ≥99.99% is commercially available.", "FTO substrate is compatible with deposition method."],
+        },
+        state: { status: "draft", version: 1 },
+        learn_content: {
+          what_is_this: "Acquisition of elemental or compound precursors for thin-film deposition and transparent conductive oxide substrates.",
+          why_important: "Precursor purity and stoichiometric control directly determine film quality and device yield.",
+          connection_to_hypothesis: "Earth-abundant means specific elemental choices (Cu, Zn, Sn, S/Se); sourcing validates feasibility.",
+          common_alternatives: ["Sol-gel precursors", "Nanoparticle ink deposition", "Electrodeposition from solution"],
+          risks: ["Precursor contamination causes deep trap states in absorber", "FTO roughness affects shunt resistance"],
+        },
+      },
+      {
+        id: "sol-3",
+        node_type: "assay",
+        label: "Thin-Film Deposition Design",
+        description: "Define conceptual deposition method and stack architecture for PI review.",
+        fields: [],
+        metadata: {
+          confidence: 0.60,
+          supporting_sources: ["https://example.org/chalcogenide-thin-film-pv", "https://example.org/pv-stability-validation"],
+          assumptions: ["Deposition parameters are high-level; operational values require qualified personnel sign-off."],
+        },
+        state: { status: "flagged", version: 2 },
+        learn_content: {
+          what_is_this: "High-level specification of the thin-film layer stack (absorber, buffer, contacts) and deposition approach.",
+          why_important: "Architecture choices lock in the efficiency ceiling and stability mechanism for the final device.",
+          connection_to_hypothesis: "The thin-film stack is the physical implementation of the hypothesis claim.",
+          common_alternatives: ["Thermal evaporation", "Chemical bath deposition (CBD) for buffer", "Sputtering of contacts"],
+          risks: ["Interface recombination at absorber/buffer junction", "Pinhole formation during annealing step"],
+        },
+      },
+      {
+        id: "sol-4",
+        node_type: "validation",
+        label: "Stability & Efficiency Characterization",
+        description: "Characterize PCE under 1-sun illumination and run accelerated aging per IEC 61215 analogue.",
+        fields: [],
+        metadata: {
+          confidence: 0.79,
+          supporting_sources: ["https://example.org/pv-stability-validation"],
+          assumptions: ["Access to solar simulator and damp-heat chamber available at partner facility."],
+        },
+        state: { status: "draft", version: 1 },
+        learn_content: {
+          what_is_this: "Quantitative measurement of device power conversion efficiency and accelerated degradation under stress conditions.",
+          why_important: "Hypothesis claims stability improvement — only controlled aging data can validate this claim.",
+          connection_to_hypothesis: "Directly tests both sides of the hypothesis: efficiency preservation AND stability improvement.",
+          common_alternatives: ["Outdoor real-world exposure tracking", "Continuous maximum power point tracking (MPPT) under light soak"],
+          risks: ["Light soaking hysteresis misrepresents true steady-state PCE", "Accelerated aging may not predict real field conditions"],
+        },
+      },
+      {
+        id: "sol-5",
+        node_type: "process",
+        label: "PI Review & IP Assessment",
+        description: "Review all device results and assess IP landscape before any public disclosure.",
+        fields: [],
+        metadata: {
+          confidence: 0.90,
+          supporting_sources: ["https://example.org/chalcogenide-thin-film-pv"],
+          assumptions: ["Technology Transfer Office is consulted before publication or commercialization steps."],
+        },
+        state: { status: "reviewed", version: 1 },
+        learn_content: {
+          what_is_this: "Final scientific and IP review gate before results leave the lab.",
+          why_important: "Photovoltaic material innovations may be patentable; premature disclosure forfeits IP rights.",
+          connection_to_hypothesis: "Ensures the efficiency and stability claims are correctly scoped before dissemination.",
+          common_alternatives: ["Skip IP assessment for purely academic publication", "Technology Transfer pre-filing search"],
+          risks: ["Novelty destroyed by prior disclosure", "Overstated efficiency claims in preliminary reports"],
+        },
+      },
+    ],
+    edges: [
+      { source: "sol-1", target: "sol-2", label: "candidate shortlist", condition: null },
+      { source: "sol-2", target: "sol-3", label: "precursors available", condition: null },
+      { source: "sol-3", target: "sol-4", label: "stack approved", condition: null },
+      { source: "sol-4", target: "sol-5", label: "data reviewed", condition: null },
+    ],
+  },
+};
+
+export function demoLabView(hypothesis: string): LabView {
+  return LAB_VIEWS[keyForHypothesis(hypothesis)];
+}
+
 export function demoLiteratureQC(hypothesis: string): LiteratureQC {
   const key = keyForHypothesis(hypothesis);
   return {
@@ -160,7 +506,11 @@ export function demoExperimentPlan(hypothesis: string, qc: LiteratureQC | null):
       "Institutional safety and ethics approval may be required before execution.",
       "Do not translate this into wet-lab or hazardous materials work without qualified supervision.",
     ], [firstUrl], 0.78),
+    lab_workflow: LAB_VIEWS[key],
     source_trace: sourceTrace,
     confidence_notes: section("Demo data fallback is active. Replace with live Tavily/Ollama output before making research claims.", [firstUrl], 0.7),
+    updated_sections: [],
   };
 }
+
+

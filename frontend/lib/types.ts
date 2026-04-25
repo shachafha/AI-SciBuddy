@@ -90,6 +90,61 @@ export type SourceCitation = {
   source: string;
 };
 
+export type LabFieldType = "text" | "number" | "select" | "boolean";
+
+export type LabFieldDef = {
+  name: string;
+  label: string;
+  field_type: LabFieldType;
+  options?: string[] | null;
+  value?: any;
+  editable: boolean;
+};
+
+export type LabNodeMeta = {
+  confidence: number;
+  supporting_sources: string[];
+  assumptions: string[];
+};
+
+export interface LabNodeState {
+  status: "draft" | "reviewed" | "flagged" | "approved";
+  version: number;
+  last_reviewer_notes?: string | null;
+}
+
+export interface LabNodeLearnContent {
+  what_is_this: string;
+  why_important: string;
+  connection_to_hypothesis: string;
+  common_alternatives: string[];
+  risks: string[];
+}
+
+export interface LabNode {
+  id: string;
+  node_type: "material" | "process" | "assay" | "validation";
+  label: string;
+  description: string;
+  fields: LabFieldDef[];
+  metadata: LabNodeMeta;
+  state: LabNodeState;
+  learn_content?: LabNodeLearnContent | null;
+};
+
+export type LabEdge = {
+  source: string;
+  target: string;
+  label?: string | null;
+  condition?: string | null;
+};
+
+export type LabView = {
+  version: number;
+  nodes: LabNode[];
+  edges: LabEdge[];
+};
+
 export type GroundedSection<T> = {
   content: T;
   confidence: number;
@@ -108,6 +163,7 @@ export type ExperimentPlan = {
   validation: GroundedSection<ValidationItem[]>;
   risks_and_assumptions: GroundedSection<string[]>;
   safety_and_ethics_notes: GroundedSection<string[]>;
+  lab_workflow?: LabView | null;
   source_trace: SourceCitation[];
   confidence_notes: GroundedSection<string>;
   updated_sections?: string[];

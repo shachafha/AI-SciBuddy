@@ -105,7 +105,8 @@ AI-SciBuddy/
     │   ├── ui.tsx                  # Design system primitives (Button, Card, Badge…)
     │   ├── literature-qc-panel.tsx # Novelty signal + rubric display
     │   ├── experiment-plan-viewer.tsx # 8-tab grounded plan viewer
-    │   └── scientist-review-panel.tsx # Feedback form + history
+    │   ├── scientist-review-panel.tsx # Feedback form + history
+    │   └── scientific-loader.tsx   # Domain-specific progress loader
     └── lib/
         ├── api.ts                  # Typed fetch wrappers
         ├── types.ts                # TypeScript mirrors of Pydantic schemas
@@ -397,7 +398,7 @@ Manages top-level state:
 - `runPlanOnly()` → calls `generatePlan(input, qc)` → on failure loads `demoExperimentPlan(hypothesis, qc)` fixture
 - `demoMode` check now uses `plan.confidence_notes.content` (not `confidence_notes` string directly) due to `GroundedSection` wrapping
 
-**Layout:** Two-column grid `lg:grid-cols-[420px_1fr]` — sidebar (hypothesis form + QC + review) and main (plan viewer).
+**Layout:** Two-column grid `lg:grid-cols-[420px_1fr]` — left sidebar (hypothesis form + sticky 5-step scientific progress tracker) and scrollable main area (QC, plan, review). Incorporates `Bricolage Grotesque` and `JetBrains Mono` for a premium scientific aesthetic. Uses `ScientificLoader` for realistic agentic progress states.
 
 ---
 
@@ -417,23 +418,30 @@ Displays:
 
 #### `experiment-plan-viewer.tsx`
 
-8-tab plan viewer. Each tab now shows a **`SectionMeta`** widget below the content — new in latest pull.
+High-density, 8-tab plan viewer using a side-rail layout.
+Top section prominently displays the **Executive Summary** and QC status badges.
+Each tab now shows a **`SectionMeta`** widget below the content.
 
 **`SectionMeta`** — renders:
 - `Confidence XX%` badge
 - Clickable "Source" links for each `supporting_source` URL
 - Assumptions text
 
-Materials tab also shows `Catalog: <catalog_number>` — new field.
-
-Tabs: Summary · Protocol · Materials · Budget · Timeline · Validation · Risks · Sources
+Data is formatted for quick PI review (30s readability): Budget as a data table with total cost, Timeline as horizontal connected bubbles, Materials as dense cards with EST pricing and catalog hints, Validation as checklists with target thresholds, and Risks as warning boxes.
 
 #### `scientist-review-panel.tsx`
 
-- Section selector (dropdown), rating (1–5 number input), tags (comma-separated), correction textarea
+- Target Section selector (dropdown).
+- **Star Rating** component (1–5).
+- **Quick Tags** — toggleable buttons (e.g., "unrealistic timeline", "missing control", "cost too low").
+- Correction textarea for qualitative notes.
 - **Save feedback** — `POST /api/feedback`
-- **Regenerate** — `POST /api/regenerate-with-feedback`
-- Shows last 4 feedback records inline
+- **Regenerate with expert feedback** — `POST /api/regenerate-with-feedback`
+- Shows feedback history inline with star ratings and assigned tags rendered as badges.
+
+#### `scientific-loader.tsx`
+
+Renders an interactive, domain-specific loading overlay while background agents work. Shows dynamic statuses like "Decomposing hypothesis", "Checking protocol repositories", and "Building validation plan" to increase system trust during long generations.
 
 #### `ui.tsx`
 
@@ -618,28 +626,37 @@ These constraints are enforced in **both** the LLM prompt and the deterministic 
 
 ### Frontend
 
-#### `types.ts` (+63 lines net)
-- Added `ParsedHypothesis`, `ReferenceRubricScore`, updated `TavilyEvidence`, `LiteratureQC`
-- Added `GroundedSection<T>` generic type
-- `ExperimentPlan` — all sections now `GroundedSection<T>`
-- `MaterialItem` — new `catalog_number` field
+#### `page.tsx`
+- Refactored to a sticky 5-step progress stepper on the left rail, with context-aware scrollable panels on the right.
+- `demoMode` check updated to use `confidence_notes.content` due to schema change.
+- Fixed TS narrowing bugs related to conditional component rendering and `busy` states.
 
-#### `experiment-plan-viewer.tsx` (+147 lines net)
-- **`SectionMeta`** component — renders confidence %, source links, and assumptions for each section
-- All tab content now uses `section.content` (not direct array)
-- Materials tab shows `catalog_number`
-- Imports `GroundedSection` type
+#### `scientific-loader.tsx` (NEW)
+- Provides fake-progress, domain-specific loading states ("Searching prior work", "Estimating materials") during agentic workflows to increase user trust.
 
-#### `literature-qc-panel.tsx` (+51 lines net)
+#### `experiment-plan-viewer.tsx`
+- Complete UI refactor: Side-rail tab navigation instead of top horizontal tabs.
+- Executive summary surfaced to the top level alongside title and novelty badges.
+- Tab-specific upgrades: Budget rendered as a table with calculated total cost, Timeline as horizontal phases, Materials as styled cards, Validation as a checklist.
+- **`SectionMeta`** component added to render confidence %, source links, and assumptions per section.
+
+#### `scientist-review-panel.tsx`
+- Complete UI refactor: Replaced manual input tags with toggleable **Quick Tags** buttons.
+- Replaced standard number input with clickable **Star Rating** icons.
+- Feedback history upgraded to show targeted section, stars, and tags as distinct badges.
+- Updated terminology: "Regenerate with expert feedback".
+
+#### `literature-qc-panel.tsx`
 - **`RubricMini`** component — 5-cell grid showing per-dimension scores + total
 - **Hypothesis decomposition** section — displays `parsed_hypothesis` chips
-- Shows search result count
+- Visual styling upgraded to fit the new "cleanroom" design aesthetic.
 
-#### `page.tsx` (+4 lines)
-- `demoMode` check updated to `confidence_notes.content` (not `.confidence_notes` directly)
-- `onPlanUpdated` updated similarly
+#### Styling & Fonts
+- Integrated `Bricolage Grotesque` for dynamic headings and `JetBrains Mono` for scientific data points and IDs.
+- Applied gradient backgrounds and `shadow-soft` variables across components for a premium product feel.
+- Added dynamic radar/grid background using raw CSS variables mapping to mouse position in globals.css.
 
-#### `frontend/lib/demo-data.ts` (+43 lines net)
+#### `frontend/lib/demo-data.ts`
 - Fixtures updated to produce `GroundedSection`-shaped objects
 
 ---

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from .chat_literature import chat_about_literature
 from .feedback_store import add_feedback, list_feedback
 from .literature_qc import assess_literature_qc
-from .plan_generator import generate_plan, regenerate_plan_with_feedback
+from .plan_generator import generate_plan, regenerate_plan_with_feedback, regenerate_plan_from_lab_view
 from .schemas import (
     ChatAboutLiteratureRequest,
     ChatAboutLiteratureResponse,
@@ -15,6 +15,7 @@ from .schemas import (
     ExperimentPlan,
     GeneratePlanRequest,
     HypothesisInput,
+    LabViewRegenerateRequest,
     LiteratureQC,
     RegenerateRequest,
     ScientistFeedback,
@@ -78,16 +79,15 @@ def regenerate(payload: RegenerateRequest) -> ExperimentPlan:
 def chat_literature(payload: ChatAboutLiteratureRequest) -> ChatAboutLiteratureResponse:
     """
     Chat endpoint for interacting with the AI about hypotheses and literature QC results.
-    
-    Test with curl:
-    ```bash
-    curl -X 'POST' \
-      'http://localhost:8000/api/chat-literature' \
-      -H 'Content-Type: application/json' \
-      -d '{
-      "messages": [{"role": "user", "content": "Is this hypothesis novel?"}],
-      "hypothesis": "Low dose aspirin prevents hair loss"
-    }'
-    ```
     """
     return chat_about_literature(payload)
+
+
+@app.post("/api/regenerate-from-lab-view", response_model=ExperimentPlan)
+def regenerate_from_lab_view(payload: LabViewRegenerateRequest) -> ExperimentPlan:
+    """Regenerate the experiment plan driven by the scientist's edited Lab View graph.
+
+    Provenance of AI-generated vs user-edited nodes is enforced server-side.
+    Falls back gracefully to a structured diff-annotated plan if Ollama is unavailable.
+    """
+    return regenerate_plan_from_lab_view(payload)

@@ -1,4 +1,4 @@
-import type { ChatAboutLiteratureRequest, ChatAboutLiteratureResponse, ExperimentPlan, FeedbackRecord, HypothesisInput, LiteratureQC, ScientistFeedback } from "./types";
+import type { ChatAboutLiteratureRequest, ChatAboutLiteratureResponse, ExperimentPlan, FeedbackRecord, HypothesisInput, LabView, LiteratureQC, ScientistFeedback } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -44,7 +44,11 @@ export function getFeedback() {
   return request<FeedbackRecord[]>("/api/feedback");
 }
 
-export function regenerateWithFeedback(hypothesis: string, currentPlan: ExperimentPlan, feedback: ScientistFeedback) {
+export function regenerateWithFeedback(
+  hypothesis: string,
+  currentPlan: ExperimentPlan,
+  feedback: ScientistFeedback
+) {
   return request<ExperimentPlan>("/api/regenerate-with-feedback", {
     method: "POST",
     body: JSON.stringify({ hypothesis, current_plan: currentPlan, feedback }),
@@ -55,5 +59,31 @@ export function chatAboutLiterature(payload: ChatAboutLiteratureRequest) {
   return request<ChatAboutLiteratureResponse>("/api/chat-literature", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export interface LabViewRegenOptions {
+  hypothesis: string;
+  currentPlan: ExperimentPlan;
+  editedLabView: LabView;
+  scientistFeedback?: ScientistFeedback[];
+  userNotes?: string;
+}
+
+/**
+ * POST /api/regenerate-from-lab-view
+ * Regenerates an ExperimentPlan from the scientist's edited Lab View graph.
+ * Provenance (AI-generated vs user-edited nodes) is enforced server-side.
+ */
+export function regenerateFromLabView(opts: LabViewRegenOptions) {
+  return request<ExperimentPlan>("/api/regenerate-from-lab-view", {
+    method: "POST",
+    body: JSON.stringify({
+      hypothesis: opts.hypothesis,
+      current_plan: opts.currentPlan,
+      edited_lab_view: opts.editedLabView,
+      scientist_feedback: opts.scientistFeedback ?? [],
+      user_notes: opts.userNotes ?? null,
+    }),
   });
 }
