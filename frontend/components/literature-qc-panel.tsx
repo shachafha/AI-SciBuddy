@@ -14,7 +14,7 @@ const signalLabels = {
   exact_match_found: "Exact match found",
 };
 
-export function LiteratureQCPanel({ qc, loading }: { qc: LiteratureQC | null; loading?: boolean }) {
+export function LiteratureQCPanel({ qc, loading, demo }: { qc: LiteratureQC | null; loading?: boolean; demo?: boolean }) {
   if (loading) {
     return (
       <Card className="overflow-hidden p-5">
@@ -52,6 +52,7 @@ export function LiteratureQCPanel({ qc, loading }: { qc: LiteratureQC | null; lo
         </div>
         <Badge className={signalStyles[qc.novelty_signal]}>{signalLabels[qc.novelty_signal]}</Badge>
       </div>
+      {demo ? <Badge className="mt-3 border-amber-200 bg-amber-50 text-amber-900">Demo data</Badge> : null}
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
         <div className="h-full bg-accent" style={{ width: `${Math.round(qc.confidence * 100)}%` }} />
       </div>
