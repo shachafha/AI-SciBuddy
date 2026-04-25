@@ -12,7 +12,7 @@ import { RelatedWorkSection } from "@/components/related-work-section";
 import { chatAboutLiterature, generatePlan, runLiteratureQC } from "@/lib/api";
 import { demoExperimentPlan, demoLiteratureQC } from "@/lib/demo-data";
 import type { ChatMessage, ExperimentPlan, LiteratureQC } from "@/lib/types";
-import { FlaskConical, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { FlaskConical, ArrowLeft, ArrowRight, CheckCircle2, SendHorizontal } from "lucide-react";
 
 function LabBackground({ mouse }: { mouse: { x: number; y: number } }) {
   const style = {
@@ -24,12 +24,6 @@ function LabBackground({ mouse }: { mouse: { x: number; y: number } }) {
     <div className="pointer-events-none fixed inset-0 overflow-hidden" style={style}>
       <div className="absolute inset-0 bg-[linear-gradient(rgba(20,150,180,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(20,150,180,0.05)_1px,transparent_1px)] bg-[size:44px_44px]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_var(--mx)_var(--my),rgba(20,150,180,0.12),transparent_32rem)]" />
-      <div className="absolute left-[8%] top-[18%] hidden rounded-md border border-border/40 bg-white/45 px-3 py-2 font-mono text-xs font-semibold text-primary/60 shadow-sm backdrop-blur md:block">
-        SYS.READY
-      </div>
-      <div className="absolute right-[11%] top-[24%] hidden rounded-md border border-border/40 bg-white/45 px-3 py-2 font-mono text-xs font-semibold text-primary/60 shadow-sm backdrop-blur lg:block">
-        NOVELTY_IDX: OPTIMAL
-      </div>
     </div>
   );
 }
@@ -50,6 +44,7 @@ export default function Home() {
 
   const input = { hypothesis, domain: domain || undefined, constraints: constraints || undefined };
   const isBusy = busy !== null;
+  const hasStarted = chatMessages.length > 0;
 
   async function performQC(hyp: string) {
     setBusy("qc");
@@ -68,33 +63,34 @@ export default function Home() {
     }
   }
 
-  async function handleSendMessage(messageText: string) {
-    const newUserMsg: ChatMessage = { role: "user", content: messageText };
-    let currentHypothesis = hypothesis;
+  async function handleInitialize() {
+    if (!hypothesis.trim()) return;
+    const msg: ChatMessage = { role: "user", content: hypothesis };
+    setChatMessages([msg]);
+    
+    const newQc = await performQC(hypothesis);
+    
+    let signalText = "I found some similar work.";
+    if (newQc.novelty_signal === "not_found") signalText = "I didn't find any exact matches for this.";
+    else if (newQc.novelty_signal === "exact_match_found") signalText = "I found an exact match or extremely similar work in the literature.";
+    
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: `I've analyzed your hypothesis. ${signalText} The literature QC results and related work are now displayed below.\n\nTake a look, and let me know if you want to refine the hypothesis or if you're ready to generate the experiment plan.`,
+      },
+    ]);
+  }
 
-    if (!hypothesis) {
-      // First message -> Treat as hypothesis
-      currentHypothesis = messageText;
+  async function handleSendMessage(messageText: string) {
+    if (!hasStarted) {
       setHypothesis(messageText);
-      setChatMessages([newUserMsg]);
-      
-      const newQc = await performQC(messageText);
-      
-      let signalText = "I found some similar work.";
-      if (newQc.novelty_signal === "not_found") signalText = "I didn't find any exact matches for this.";
-      else if (newQc.novelty_signal === "exact_match_found") signalText = "I found an exact match or extremely similar work in the literature.";
-      
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `I've analyzed your hypothesis. ${signalText} The literature QC results and related work are now displayed below.\n\nTake a look, and let me know if you want to refine the hypothesis or if you're ready to generate the experiment plan.`,
-        },
-      ]);
+      await handleInitialize();
       return;
     }
 
-    // Follow-up message
+    const newUserMsg: ChatMessage = { role: "user", content: messageText };
     const newMessages = [...chatMessages, newUserMsg];
     setChatMessages(newMessages);
     setBusy("chat");
@@ -102,7 +98,7 @@ export default function Home() {
     try {
       const response = await chatAboutLiterature({
         messages: newMessages,
-        hypothesis: currentHypothesis,
+        hypothesis: hypothesis,
         domain: domain || undefined,
         constraints: constraints || undefined,
         qc: qc,
@@ -196,26 +192,77 @@ export default function Home() {
       <LabBackground mouse={mouse} />
       <div className="relative z-10 mx-auto max-w-[1400px]">
         
-        {/* HEADER */}
-        <header className="mb-6 flex flex-col gap-4 border-b border-border/60 pb-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-sm font-bold text-primary">
-              <FlaskConical className="h-5 w-5" />
-              AI SciBuddy Workspace
-            </div>
-            <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
-              Research Operations
-            </h1>
+        {/* DEMO MODE BANNER */}
+        {demoMode && (
+          <div className="absolute top-0 right-0 m-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 font-mono text-xs font-semibold uppercase tracking-wider text-amber-800 shadow-sm z-50">
+            Demo Mode Active
           </div>
-          {demoMode ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 font-mono text-xs font-semibold uppercase tracking-wider text-amber-800 shadow-sm">
-              Demo Mode Active
-            </div>
-          ) : null}
-        </header>
+        )}
 
-        {/* PLAN PHASE */}
-        {viewMode === "plan" && plan ? (
+        {/* HERO / INPUT AREA */}
+        <div className={`flex flex-col items-center justify-center transition-all duration-700 ${hasStarted ? "pt-8 pb-8" : "min-h-[80vh] py-12"}`}>
+          <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary shadow-sm backdrop-blur">
+            ⚗ SCIBUDDY ARCHITECTURE V2.0
+          </div>
+          <h1 className="mb-4 text-4xl font-black tracking-tight sm:text-6xl text-slate-900">
+            AI SciBuddy
+          </h1>
+          <p className="mb-10 max-w-2xl text-center text-lg text-slate-600 leading-relaxed px-4">
+            A modern AI science workspace. Provide a hypothesis to trigger literature QC, automated planning, and structured scientific review.
+          </p>
+
+          <Card className="w-full max-w-[900px] p-2 bg-white/80 backdrop-blur-md shadow-xl border-border/60 rounded-2xl mx-4">
+            <textarea
+              value={hypothesis}
+              onChange={(e) => setHypothesis(e.target.value)}
+              placeholder="Start with a scientific hypothesis..."
+              className="w-full min-h-[120px] resize-none bg-transparent p-4 text-lg outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
+              disabled={hasStarted || isBusy}
+            />
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-2 border-t border-border/40 mt-2 bg-white/50 rounded-xl">
+              <input
+                type="text"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="Optional domain"
+                className="w-full sm:w-64 bg-white border border-border/50 rounded-lg px-4 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
+                disabled={hasStarted || isBusy}
+              />
+              <Button
+                onClick={handleInitialize}
+                disabled={hasStarted || isBusy || !hypothesis.trim()}
+                className="w-full sm:w-auto h-10 px-6 rounded-lg bg-primary hover:bg-primary/90 text-white shadow-md transition-all font-medium"
+              >
+                Initialize
+                <SendHorizontal className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </Card>
+
+          {!hasStarted && (
+            <div className="mt-10 flex flex-wrap justify-center gap-3 max-w-3xl px-4 opacity-80">
+              {[
+                "Test whether low-dose senolytic priming reduces oxidative stress in aged fibroblasts.",
+                "Can CRISPR-Cas9 be used to treat cystic fibrosis via aerosol delivery?",
+                "Evaluate if high-intensity interval training improves neuroplasticity in early-stage Alzheimer's.",
+              ].map((ex, i) => (
+                <button
+                  key={i}
+                  onClick={() => setHypothesis(ex)}
+                  className="text-xs bg-white/60 border border-border/50 hover:border-primary/40 hover:bg-white shadow-sm rounded-full px-4 py-2 text-slate-600 transition-all"
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* BELOW THE FOLD */}
+        {hasStarted && (
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+            {/* PLAN PHASE */}
+            {viewMode === "plan" && plan ? (
           <div className="flex flex-col gap-6">
             <div className="flex justify-start">
               <SecondaryButton onClick={() => setViewMode("chat")} className="shadow-sm">
@@ -286,6 +333,19 @@ export default function Home() {
               />
             </Card>
 
+            {plan && (
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2">
+                <div className="flex items-center gap-2 text-emerald-900 text-sm font-medium">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  You have an active experiment plan for the current hypothesis.
+                </div>
+                <Button onClick={() => setViewMode("plan")} className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 text-sm shadow-sm">
+                  View Plan
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+
             <RelatedWorkSection
               qc={qc}
               loadingQC={busy === "qc"}
@@ -295,6 +355,8 @@ export default function Home() {
             />
           </div>
         )}
+      </div>
+      )}
       </div>
     </main>
   );
