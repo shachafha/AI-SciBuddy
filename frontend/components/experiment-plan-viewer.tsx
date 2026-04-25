@@ -16,6 +16,7 @@ import {
   TestTube2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { GroundedSection } from "@/lib/types";
 
 type PlanTab = "summary" | "protocol" | "materials" | "budget" | "timeline" | "validation" | "risks" | "sources";
 
@@ -30,15 +31,36 @@ const tabs: { id: PlanTab; label: string; icon: ElementType }[] = [
   { id: "sources", label: "Sources", icon: Link2 },
 ];
 
-function ListBlock({ items }: { items: string[] }) {
+function SectionMeta({ section }: { section: GroundedSection<unknown> }) {
   return (
-    <ul className="space-y-2 text-sm text-muted-foreground">
-      {items.map((item) => (
-        <li key={item} className="rounded-md border border-border bg-white px-3 py-2 leading-6">
-          {item}
-        </li>
-      ))}
-    </ul>
+    <div className="mt-4 rounded-md border border-border bg-slate-50 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge className="bg-white text-foreground">Confidence {Math.round(section.confidence * 100)}%</Badge>
+        {section.supporting_sources.slice(0, 3).map((url) => (
+          <a key={url} href={url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-primary hover:underline">
+            Source
+          </a>
+        ))}
+      </div>
+      {section.assumptions.length ? (
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">Assumptions: {section.assumptions.join(" ")}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function ListBlock({ section }: { section: GroundedSection<string[]> }) {
+  return (
+    <div>
+      <ul className="space-y-2 text-sm text-muted-foreground">
+        {section.content.map((item) => (
+          <li key={item} className="rounded-md border border-border bg-white px-3 py-2 leading-6">
+            {item}
+          </li>
+        ))}
+      </ul>
+      <SectionMeta section={section} />
+    </div>
   );
 }
 
@@ -122,75 +144,90 @@ export function ExperimentPlanViewer({ plan, loading, mock }: { plan: Experiment
           <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
             <section className="rounded-md border border-border bg-white p-4">
               <h3 className="text-sm font-semibold">Executive Summary</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{plan.executive_summary}</p>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{plan.executive_summary.content}</p>
               <div className="mt-4 rounded-md bg-muted p-3 text-sm leading-6">{plan.hypothesis}</div>
+              <SectionMeta section={plan.executive_summary} />
             </section>
             <section className="rounded-md border border-border bg-white p-4">
               <h3 className="text-sm font-semibold">Confidence Notes</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{plan.confidence_notes}</p>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{plan.confidence_notes.content}</p>
+              <SectionMeta section={plan.confidence_notes} />
             </section>
           </div>
         ) : null}
 
-        {activeTab === "protocol" ? <ListBlock items={plan.protocol_summary} /> : null}
+        {activeTab === "protocol" ? <ListBlock section={plan.protocol_summary} /> : null}
 
         {activeTab === "materials" ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            {plan.materials.map((material) => (
-              <a
-                key={`${material.item}-${material.evidence_url}`}
-                href={material.evidence_url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-md border border-border bg-white p-4 text-sm transition hover:border-primary/60"
-              >
-                <div className="font-semibold">{material.item}</div>
-                <p className="mt-2 leading-6 text-muted-foreground">{material.purpose}</p>
-                <div className="mt-3 text-xs text-muted-foreground">{material.supplier_hint}</div>
-                <Badge className="mt-3 bg-teal-50 text-teal-900">${material.estimated_cost.toLocaleString()}</Badge>
-              </a>
-            ))}
+          <div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {plan.materials.content.map((material) => (
+                <a
+                  key={`${material.item}-${material.evidence_url}`}
+                  href={material.evidence_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-md border border-border bg-white p-4 text-sm transition hover:border-primary/60"
+                >
+                  <div className="font-semibold">{material.item}</div>
+                  <p className="mt-2 leading-6 text-muted-foreground">{material.purpose}</p>
+                  <div className="mt-3 text-xs text-muted-foreground">{material.supplier_hint}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">Catalog: {material.catalog_number}</div>
+                  <Badge className="mt-3 bg-teal-50 text-teal-900">${material.estimated_cost.toLocaleString()}</Badge>
+                </a>
+              ))}
+            </div>
+            <SectionMeta section={plan.materials} />
           </div>
         ) : null}
 
         {activeTab === "budget" ? (
-          <div className="space-y-3">
-            {plan.budget.map((item) => (
-              <div key={`${item.category}-${item.item}`} className="rounded-md border border-border bg-white p-4 text-sm">
-                <div className="flex flex-wrap justify-between gap-3 font-semibold">
-                  <span>{item.category}: {item.item}</span>
-                  <span>${item.estimated_cost.toLocaleString()}</span>
+          <div>
+            <div className="space-y-3">
+              {plan.budget.content.map((item) => (
+                <div key={`${item.category}-${item.item}`} className="rounded-md border border-border bg-white p-4 text-sm">
+                  <div className="flex flex-wrap justify-between gap-3 font-semibold">
+                    <span>{item.category}: {item.item}</span>
+                    <span>${item.estimated_cost.toLocaleString()}</span>
+                  </div>
+                  <p className="mt-2 leading-6 text-muted-foreground">{item.notes}</p>
                 </div>
-                <p className="mt-2 leading-6 text-muted-foreground">{item.notes}</p>
-              </div>
-            ))}
+              ))}
+            </div>
+            <SectionMeta section={plan.budget} />
           </div>
         ) : null}
 
         {activeTab === "timeline" ? (
-          <div className="space-y-3">
-            {plan.timeline.map((item) => (
-              <div key={`${item.phase}-${item.duration}`} className="rounded-md border border-border bg-white p-4 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="font-semibold">{item.phase}</div>
-                  <Badge>{item.duration}</Badge>
+          <div>
+            <div className="space-y-3">
+              {plan.timeline.content.map((item) => (
+                <div key={`${item.phase}-${item.duration}`} className="rounded-md border border-border bg-white p-4 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="font-semibold">{item.phase}</div>
+                    <Badge>{item.duration}</Badge>
+                  </div>
+                  <p className="mt-2 leading-6 text-muted-foreground">{item.deliverable}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">Dependencies: {item.dependencies.join(", ")}</p>
                 </div>
-                <p className="mt-2 leading-6 text-muted-foreground">{item.deliverable}</p>
-                <p className="mt-2 text-xs text-muted-foreground">Dependencies: {item.dependencies.join(", ")}</p>
-              </div>
-            ))}
+              ))}
+            </div>
+            <SectionMeta section={plan.timeline} />
           </div>
         ) : null}
 
         {activeTab === "validation" ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            {plan.validation.map((item) => (
-              <div key={item.metric} className="rounded-md border border-border bg-white p-4 text-sm">
-                <div className="font-semibold">{item.metric}</div>
-                <p className="mt-2 leading-6 text-muted-foreground">{item.success_threshold}</p>
-                <p className="mt-2 text-xs text-muted-foreground">{item.measurement_method}</p>
-              </div>
-            ))}
+          <div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {plan.validation.content.map((item) => (
+                <div key={item.metric} className="rounded-md border border-border bg-white p-4 text-sm">
+                  <div className="font-semibold">{item.metric}</div>
+                  <p className="mt-2 leading-6 text-muted-foreground">{item.success_threshold}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{item.measurement_method}</p>
+                </div>
+              ))}
+            </div>
+            <SectionMeta section={plan.validation} />
           </div>
         ) : null}
 
@@ -198,11 +235,11 @@ export function ExperimentPlanViewer({ plan, loading, mock }: { plan: Experiment
           <div className="grid gap-4 lg:grid-cols-2">
             <section>
               <h3 className="mb-2 text-sm font-semibold">Risks and Assumptions</h3>
-              <ListBlock items={plan.risks_and_assumptions} />
+              <ListBlock section={plan.risks_and_assumptions} />
             </section>
             <section>
               <h3 className="mb-2 text-sm font-semibold">Safety and Ethics</h3>
-              <ListBlock items={plan.safety_and_ethics_notes} />
+              <ListBlock section={plan.safety_and_ethics_notes} />
             </section>
           </div>
         ) : null}

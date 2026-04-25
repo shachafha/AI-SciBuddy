@@ -167,7 +167,7 @@ export default function Home() {
               plan={plan}
               onPlanUpdated={(updated) => {
                 setPlan(updated);
-                setDemoMode(updated.confidence_notes.toLowerCase().includes("demo"));
+                setDemoMode(updated.confidence_notes.content.toLowerCase().includes("demo"));
               }}
             />
           </section>
@@ -176,7 +176,7 @@ export default function Home() {
             <ExperimentPlanViewer
               plan={plan}
               loading={busy === "plan"}
-              mock={demoMode || plan?.confidence_notes.toLowerCase().includes("demo")}
+              mock={demoMode || plan?.confidence_notes.content.toLowerCase().includes("demo")}
             />
           </section>
         </div>
