@@ -1,7 +1,7 @@
 "use client";
 
 import { CSSProperties, useState } from "react";
-import { Card, SecondaryButton } from "@/components/ui";
+import { Card, SecondaryButton, Button } from "@/components/ui";
 import { ExperimentPlanViewer } from "@/components/experiment-plan-viewer";
 import { ScientistReviewPanel } from "@/components/scientist-review-panel";
 import { ScientificLoader } from "@/components/scientific-loader";
@@ -12,7 +12,7 @@ import { RelatedWorkSection } from "@/components/related-work-section";
 import { chatAboutLiterature, generatePlan, runLiteratureQC } from "@/lib/api";
 import { demoExperimentPlan, demoLiteratureQC } from "@/lib/demo-data";
 import type { ChatMessage, ExperimentPlan, LiteratureQC } from "@/lib/types";
-import { FlaskConical, ArrowLeft } from "lucide-react";
+import { FlaskConical, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 
 function LabBackground({ mouse }: { mouse: { x: number; y: number } }) {
   const style = {
@@ -46,6 +46,7 @@ export default function Home() {
   const [refreshQcPending, setRefreshQcPending] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [busy, setBusy] = useState<"qc" | "chat" | "plan" | "both" | null>(null);
+  const [viewMode, setViewMode] = useState<"chat" | "plan">("chat");
 
   const input = { hypothesis, domain: domain || undefined, constraints: constraints || undefined };
   const isBusy = busy !== null;
@@ -134,6 +135,7 @@ export default function Home() {
     setHypothesis(newHyp);
     setSuggestedHypothesis(null);
     setRefreshQcPending(false);
+    setPlan(null); // Clear the stale plan
 
     setChatMessages((prev) => [
       ...prev,
@@ -169,9 +171,11 @@ export default function Home() {
     try {
       const response = await generatePlan(input, qc);
       setPlan(response);
+      setViewMode("plan");
       setDemoMode(false);
     } catch {
       setPlan(demoExperimentPlan(hypothesis, qc));
+      setViewMode("plan");
       setDemoMode(true);
     } finally {
       setBusy(null);
@@ -211,10 +215,10 @@ export default function Home() {
         </header>
 
         {/* PLAN PHASE */}
-        {plan ? (
+        {viewMode === "plan" && plan ? (
           <div className="flex flex-col gap-6">
             <div className="flex justify-start">
-              <SecondaryButton onClick={() => setPlan(null)} className="shadow-sm">
+              <SecondaryButton onClick={() => setViewMode("chat")} className="shadow-sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to research chat
               </SecondaryButton>
@@ -239,6 +243,19 @@ export default function Home() {
         ) : (
           /* RESEARCH PHASE (CHAT) */
           <div className="mx-auto max-w-4xl flex flex-col gap-6 pb-24">
+            {plan && (
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2">
+                <div className="flex items-center gap-2 text-emerald-900 text-sm font-medium">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  You have an active experiment plan for the current hypothesis.
+                </div>
+                <Button onClick={() => setViewMode("plan")} className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 text-sm shadow-sm">
+                  View Plan
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+            
             <div className="text-center mb-4">
               <p className="text-lg text-muted-foreground leading-relaxed">
                 Chat with AI-SciBuddy about your hypothesis, inspect related work, then generate a grounded experiment plan.
@@ -251,6 +268,7 @@ export default function Home() {
               constraints={constraints}
               parsedHypothesis={qc?.parsed_hypothesis}
               suggestedHypothesis={suggestedHypothesis}
+              hasPlan={!!plan}
               onApplySuggested={applySuggestedHypothesis}
               onDismissSuggested={dismissSuggestedHypothesis}
             />

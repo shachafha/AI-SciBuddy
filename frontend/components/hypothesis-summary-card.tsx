@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Card, Badge, Button } from "@/components/ui";
 import type { ParsedHypothesis } from "@/lib/types";
-import { AlertCircle, CheckCircle2, ChevronRight, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, X, AlertTriangle } from "lucide-react";
 
 interface HypothesisSummaryCardProps {
   hypothesis: string;
@@ -9,6 +9,7 @@ interface HypothesisSummaryCardProps {
   constraints?: string | null;
   parsedHypothesis?: ParsedHypothesis | null;
   suggestedHypothesis?: string | null;
+  hasPlan?: boolean;
   onApplySuggested: () => void;
   onDismissSuggested: () => void;
 }
@@ -19,6 +20,7 @@ export function HypothesisSummaryCard({
   constraints,
   parsedHypothesis,
   suggestedHypothesis,
+  hasPlan,
   onApplySuggested,
   onDismissSuggested,
 }: HypothesisSummaryCardProps) {
@@ -53,6 +55,12 @@ export function HypothesisSummaryCard({
           <p className="text-sm text-indigo-900 leading-relaxed bg-white/60 p-2 rounded border border-indigo-100 italic">
             {suggestedHypothesis}
           </p>
+          {hasPlan && (
+            <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              Applying a new hypothesis will discard your current experiment plan.
+            </div>
+          )}
           <div className="mt-3 flex justify-end gap-2">
             <Button
               onClick={onDismissSuggested}
