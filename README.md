@@ -67,6 +67,33 @@ Open `http://localhost:3000` in your browser.
 4. **Review Details**: Explore the generated budget, timeline, materials, and source trace.
 5. **Scientist Correction**: Use the review panel to correct an issue (e.g., timeline delays).
 6. **Regenerate**: Watch the plan update, highlighting the changed timeline tab and appending the expert note.
+7. **Launch Execution Plan**: Create a live execution workspace from the reviewed plan and hand it off by link.
+
+## Execution Workspace
+After a plan has been generated or regenerated with scientist feedback, use **Launch Execution Plan** in the main dashboard to create a live coordination workspace.
+
+The execution workspace lets a scientist hand off a reviewed plan to an executor and track:
+* task status across preparation, review, logistics, execution tracking, validation, safety, and final review
+* blocked work and items that need scientist or PI review
+* executor notes, invite links, and shareable demo handoff messages
+
+To share a live plan:
+1. Generate or regenerate a plan in the main app.
+2. Click **Launch Execution Plan**.
+3. Open the created workspace at `/plan/{plan_id}`.
+4. Use the **Invite Executors** panel to generate a share link, copy the invite message, or open a prefilled `mailto:` draft.
+
+The app still runs locally with:
+
+```bash
+cd backend
+uvicorn app.main:app --reload --port 8000
+```
+
+```bash
+cd frontend
+npm run dev
+```
 
 ## Limitations and Safety Note
 **AI SciBuddy generates high-level planning drafts for review, NOT operational wet-lab instructions.**

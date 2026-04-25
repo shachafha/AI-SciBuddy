@@ -1,24 +1,38 @@
 import logging
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from .chat_literature import chat_about_literature
+from .execution_store import (
+    ExecutionPlanNotFoundError,
+    ExecutionStoreError,
+    ExecutionTaskNotFoundError,
+    create_execution_plan,
+    get_execution_plan,
+    invite_executors,
+    update_execution_task,
+)
 from .feedback_store import add_feedback, list_feedback
 from .literature_qc import assess_literature_qc
-from .plan_generator import generate_plan, regenerate_plan_with_feedback, regenerate_plan_from_lab_view
+from .plan_generator import generate_plan, regenerate_plan_from_lab_view, regenerate_plan_with_feedback
 from .schemas import (
     ChatAboutLiteratureRequest,
     ChatAboutLiteratureResponse,
+    CreateExecutionPlanRequest,
+    ExecutionPlan,
     FeedbackRecord,
     ExperimentPlan,
     GeneratePlanRequest,
     HypothesisInput,
+    InviteExecutorsRequest,
+    InviteExecutorsResponse,
     LabViewRegenerateRequest,
     LiteratureQC,
     RegenerateRequest,
     ScientistFeedback,
+    UpdateTaskRequest,
 )
 
 load_dotenv()
@@ -77,17 +91,59 @@ def regenerate(payload: RegenerateRequest) -> ExperimentPlan:
 
 @app.post("/api/chat-literature", response_model=ChatAboutLiteratureResponse)
 def chat_literature(payload: ChatAboutLiteratureRequest) -> ChatAboutLiteratureResponse:
-    """
-    Chat endpoint for interacting with the AI about hypotheses and literature QC results.
-    """
     return chat_about_literature(payload)
 
 
 @app.post("/api/regenerate-from-lab-view", response_model=ExperimentPlan)
 def regenerate_from_lab_view(payload: LabViewRegenerateRequest) -> ExperimentPlan:
-    """Regenerate the experiment plan driven by the scientist's edited Lab View graph.
-
-    Provenance of AI-generated vs user-edited nodes is enforced server-side.
-    Falls back gracefully to a structured diff-annotated plan if Ollama is unavailable.
-    """
     return regenerate_plan_from_lab_view(payload)
+
+
+@app.post("/api/execution-plans", response_model=ExecutionPlan)
+def launch_execution_plan(payload: CreateExecutionPlanRequest) -> ExecutionPlan:
+    try:
+        return create_execution_plan(
+            source_plan=payload.source_plan,
+            creator_email=payload.creator_email,
+            executor_emails=payload.executor_emails,
+        )
+    except ExecutionStoreError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/execution-plans/{plan_id}", response_model=ExecutionPlan)
+def read_execution_plan(plan_id: str) -> ExecutionPlan:
+    try:
+        return get_execution_plan(plan_id)
+    except ExecutionPlanNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Execution plan not found") from exc
+    except ExecutionStoreError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.patch("/api/execution-plans/{plan_id}/tasks/{task_id}", response_model=ExecutionPlan)
+def patch_execution_task(plan_id: str, task_id: str, payload: UpdateTaskRequest) -> ExecutionPlan:
+    try:
+        return update_execution_task(plan_id, task_id, payload)
+    except ExecutionPlanNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Execution plan not found") from exc
+    except ExecutionTaskNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Execution task not found") from exc
+    except ExecutionStoreError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/execution-plans/{plan_id}/invite", response_model=InviteExecutorsResponse)
+def invite_execution_plan_executors(
+    plan_id: str,
+    payload: InviteExecutorsRequest,
+    request: Request,
+) -> InviteExecutorsResponse:
+    origin = (request.headers.get("origin") or "").rstrip("/")
+    share_url = f"{origin}/plan/{plan_id}" if origin else f"/plan/{plan_id}"
+    try:
+        return invite_executors(plan_id, payload.executor_emails, share_url)
+    except ExecutionPlanNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Execution plan not found") from exc
+    except ExecutionStoreError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

@@ -130,7 +130,7 @@ export interface LabNode {
   metadata: LabNodeMeta;
   state: LabNodeState;
   learn_content?: LabNodeLearnContent | null;
-};
+}
 
 export type LabEdge = {
   source: string;
@@ -205,4 +205,58 @@ export type ChatAboutLiteratureResponse = {
   message: ChatMessage;
   suggested_hypothesis?: string | null;
   should_refresh_qc?: boolean;
+};
+
+export type ExecutionPlanStatus = "draft" | "in_progress" | "completed" | "archived";
+export type ExecutionTaskStatus = "not_started" | "in_progress" | "blocked" | "done" | "needs_review";
+
+export type ExecutionTaskSection =
+  | "Preparation"
+  | "Design Review"
+  | "Materials and Logistics"
+  | "Execution Tracking"
+  | "Validation and Analysis"
+  | "Safety and Compliance"
+  | "Final Review";
+
+export type ExecutionTask = {
+  task_id: string;
+  section: ExecutionTaskSection;
+  title: string;
+  description: string;
+  status: ExecutionTaskStatus;
+  assignee?: string | null;
+  notes: string;
+  updated_at: string;
+};
+
+export type ExecutionPlan = {
+  plan_id: string;
+  title: string;
+  hypothesis: string;
+  creator_email?: string | null;
+  executor_emails: string[];
+  status: ExecutionPlanStatus;
+  tasks: Record<ExecutionTaskSection, ExecutionTask[]>;
+  source_plan_summary: string;
+  safety_notice: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UpdateExecutionTaskPayload = {
+  status?: ExecutionTaskStatus;
+  assignee?: string | null;
+  notes?: string;
+};
+
+export type InviteExecutorsPayload = {
+  executor_emails: string[];
+};
+
+export type InviteExecutorsResponse = {
+  invited_emails: string[];
+  share_url: string;
+  email_subject: string;
+  email_body: string;
 };
