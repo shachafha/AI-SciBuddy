@@ -1,42 +1,18 @@
 "use client";
 
-import { CSSProperties, FormEvent, useState } from "react";
-import { Button, Card, Input, SecondaryButton, Textarea } from "@/components/ui";
+import { CSSProperties, useState } from "react";
+import { Card, SecondaryButton } from "@/components/ui";
 import { ExperimentPlanViewer } from "@/components/experiment-plan-viewer";
-import { LiteratureQCPanel } from "@/components/literature-qc-panel";
 import { ScientistReviewPanel } from "@/components/scientist-review-panel";
 import { ScientificLoader } from "@/components/scientific-loader";
-import { generatePlan, runLiteratureQC } from "@/lib/api";
+import { ChatMessageList } from "@/components/chat-message-list";
+import { ChatComposer } from "@/components/chat-composer";
+import { HypothesisSummaryCard } from "@/components/hypothesis-summary-card";
+import { RelatedWorkSection } from "@/components/related-work-section";
+import { chatAboutLiterature, generatePlan, runLiteratureQC } from "@/lib/api";
 import { demoExperimentPlan, demoLiteratureQC } from "@/lib/demo-data";
-import type { ExperimentPlan, LiteratureQC } from "@/lib/types";
-import { ArrowRight, Check, FlaskConical, Loader2, Search, Send, Sparkles } from "lucide-react";
-
-function ProgressStepper({ currentStep }: { currentStep: number }) {
-  const steps = [
-    "Hypothesis Setup",
-    "Literature QC",
-    "Plan Generation",
-    "Expert Review",
-    "Improved Plan"
-  ];
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-white/60 p-5 shadow-sm backdrop-blur">
-      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Pipeline Status</div>
-      {steps.map((step, idx) => {
-        const isActive = idx === currentStep;
-        const isDone = idx < currentStep;
-        return (
-          <div key={step} className="flex items-center gap-3">
-            <div className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${isDone ? 'bg-primary text-white' : isActive ? 'border-2 border-primary text-primary' : 'border-2 border-muted-foreground/30 text-muted-foreground'}`}>
-              {isDone ? <Check className="h-3 w-3" /> : <div className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-primary' : 'bg-transparent'}`} />}
-            </div>
-            <span className={`text-sm font-semibold transition-colors ${isActive ? 'text-primary' : isDone ? 'text-foreground' : 'text-muted-foreground'}`}>{step}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+import type { ChatMessage, ExperimentPlan, LiteratureQC } from "@/lib/types";
+import { FlaskConical, ArrowLeft } from "lucide-react";
 
 function LabBackground({ mouse }: { mouse: { x: number; y: number } }) {
   const style = {
@@ -59,51 +35,117 @@ function LabBackground({ mouse }: { mouse: { x: number; y: number } }) {
 }
 
 export default function Home() {
-  const [stage, setStage] = useState<"start" | "dashboard">("start");
   const [mouse, setMouse] = useState({ x: 50, y: 42 });
   const [hypothesis, setHypothesis] = useState("");
   const [domain, setDomain] = useState("");
   const [constraints, setConstraints] = useState("Use safe, high-level protocol detail only.");
   const [qc, setQc] = useState<LiteratureQC | null>(null);
   const [plan, setPlan] = useState<ExperimentPlan | null>(null);
-  const [hasImprovedPlan, setHasImprovedPlan] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [suggestedHypothesis, setSuggestedHypothesis] = useState<string | null>(null);
+  const [refreshQcPending, setRefreshQcPending] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
-  const [busy, setBusy] = useState<"qc" | "plan" | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  
+  const [busy, setBusy] = useState<"qc" | "chat" | "plan" | "both" | null>(null);
+
   const input = { hypothesis, domain: domain || undefined, constraints: constraints || undefined };
   const isBusy = busy !== null;
 
-  let currentStep = 0;
-  if (busy === "qc") currentStep = 1;
-  else if (qc && !plan && busy !== "plan") currentStep = 1;
-  else if (busy === "plan") currentStep = 2;
-  else if (plan && !hasImprovedPlan) currentStep = 3;
-  else if (hasImprovedPlan) currentStep = 4;
-
-  async function runQc(event?: FormEvent) {
-    event?.preventDefault();
-    if (hypothesis.length < 8) return;
-    setError(null);
-    setPlan(null);
-    setHasImprovedPlan(false);
+  async function performQC(hyp: string) {
     setBusy("qc");
-    setStage("dashboard");
     try {
-      const response = await runLiteratureQC(input);
+      const response = await runLiteratureQC({ hypothesis: hyp, domain: domain || undefined, constraints: constraints || undefined });
       setQc(response);
       setDemoMode(false);
+      return response;
     } catch {
-      setQc(demoLiteratureQC(hypothesis));
+      const fallback = demoLiteratureQC(hyp);
+      setQc(fallback);
       setDemoMode(true);
-      setError(null);
+      return fallback;
     } finally {
       setBusy(null);
     }
   }
 
+  async function handleSendMessage(messageText: string) {
+    const newUserMsg: ChatMessage = { role: "user", content: messageText };
+    let currentHypothesis = hypothesis;
+
+    if (!hypothesis) {
+      // First message -> Treat as hypothesis
+      currentHypothesis = messageText;
+      setHypothesis(messageText);
+      setChatMessages([newUserMsg]);
+      
+      const newQc = await performQC(messageText);
+      
+      let signalText = "I found some similar work.";
+      if (newQc.novelty_signal === "not_found") signalText = "I didn't find any exact matches for this.";
+      else if (newQc.novelty_signal === "exact_match_found") signalText = "I found an exact match or extremely similar work in the literature.";
+      
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `I've analyzed your hypothesis. ${signalText} The literature QC results and related work are now displayed below.\n\nTake a look, and let me know if you want to refine the hypothesis or if you're ready to generate the experiment plan.`,
+        },
+      ]);
+      return;
+    }
+
+    // Follow-up message
+    const newMessages = [...chatMessages, newUserMsg];
+    setChatMessages(newMessages);
+    setBusy("chat");
+
+    try {
+      const response = await chatAboutLiterature({
+        messages: newMessages,
+        hypothesis: currentHypothesis,
+        domain: domain || undefined,
+        constraints: constraints || undefined,
+        qc: qc,
+      });
+
+      setChatMessages((prev) => [...prev, response.message]);
+      if (response.suggested_hypothesis) {
+        setSuggestedHypothesis(response.suggested_hypothesis);
+      }
+      if (response.should_refresh_qc) {
+        setRefreshQcPending(true);
+      }
+    } catch (err) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "I'm having trouble connecting right now, but you can proceed to generate the plan if you are ready." }
+      ]);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function applySuggestedHypothesis() {
+    if (!suggestedHypothesis) return;
+    setHypothesis(suggestedHypothesis);
+    setSuggestedHypothesis(null);
+
+    if (refreshQcPending) {
+      setRefreshQcPending(false);
+      setQc(null);
+      await performQC(suggestedHypothesis);
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "I've applied your revised hypothesis and refreshed the literature QC below!" }
+      ]);
+    } else {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "I've updated the working hypothesis." }
+      ]);
+    }
+  }
+
   async function runPlanOnly() {
-    setError(null);
     setBusy("plan");
     try {
       const response = await generatePlan(input, qc);
@@ -112,67 +154,14 @@ export default function Home() {
     } catch {
       setPlan(demoExperimentPlan(hypothesis, qc));
       setDemoMode(true);
-      setError(null);
     } finally {
       setBusy(null);
     }
   }
 
-  if (stage === "start") {
-    return (
-      <main
-        className="relative min-h-screen overflow-hidden bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8"
-        onPointerMove={(event) => {
-          const rect = event.currentTarget.getBoundingClientRect();
-          setMouse({
-            x: ((event.clientX - rect.left) / rect.width) * 100,
-            y: ((event.clientY - rect.top) / rect.height) * 100,
-          });
-        }}
-      >
-        <LabBackground mouse={mouse} />
-        <section className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] max-w-5xl flex-col items-center justify-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border/60 bg-white/70 px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-primary shadow-sm backdrop-blur">
-            <FlaskConical className="h-4 w-4" />
-            SciBuddy Architecture v2.0
-          </div>
-          <h1 className="text-center text-6xl font-black tracking-tight text-slate-950 sm:text-7xl lg:text-8xl">
-            AI SciBuddy
-          </h1>
-          <p className="mt-5 max-w-2xl text-center text-base leading-7 text-muted-foreground">
-            A modern AI science workspace. Provide a hypothesis to trigger literature QC, automated planning, and structured scientific review.
-          </p>
-
-          <form onSubmit={runQc} className="mt-10 w-full max-w-3xl">
-            <div className="rounded-2xl border border-border/80 bg-white/80 p-2 shadow-sm backdrop-blur transition-all focus-within:ring-4 focus-within:ring-primary/10">
-              <Textarea
-                value={hypothesis}
-                onChange={(event) => setHypothesis(event.target.value)}
-                placeholder="Start with a scientific hypothesis..."
-                className="min-h-28 border-0 bg-transparent text-base shadow-none focus:ring-0"
-              />
-              <div className="flex flex-col gap-2 border-t border-border/60 px-2 pb-2 pt-3 sm:flex-row sm:items-center">
-                <Input
-                  value={domain}
-                  onChange={(event) => setDomain(event.target.value)}
-                  placeholder="Optional domain"
-                  className="border-0 bg-muted/50 shadow-none focus:ring-0"
-                />
-                <Button disabled={hypothesis.length < 8} type="submit" className="h-11 shrink-0 px-6">
-                  <Send className="h-4 w-4" />
-                  Initialize
-                </Button>
-              </div>
-            </div>
-          </form>
-        </section>
-      </main>
-    );
-  }
-
   return (
-    <main 
-      className="relative min-h-screen px-4 py-6 sm:px-6 lg:px-8"
+    <main
+      className="relative min-h-screen px-4 py-6 sm:px-6 lg:px-8 bg-background text-foreground"
       onPointerMove={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
         setMouse({
@@ -183,16 +172,14 @@ export default function Home() {
     >
       <LabBackground mouse={mouse} />
       <div className="relative z-10 mx-auto max-w-[1400px]">
+        
+        {/* HEADER */}
         <header className="mb-6 flex flex-col gap-4 border-b border-border/60 pb-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <button
-              type="button"
-              onClick={() => setStage("start")}
-              className="flex items-center gap-2 text-sm font-bold text-primary transition-opacity hover:opacity-80"
-            >
+            <div className="flex items-center gap-2 text-sm font-bold text-primary">
               <FlaskConical className="h-5 w-5" />
               AI SciBuddy Workspace
-            </button>
+            </div>
             <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
               Research Operations
             </h1>
@@ -204,92 +191,79 @@ export default function Home() {
           ) : null}
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] items-start">
-          {/* LEFT COLUMN: STICKY */}
-          <section className="sticky top-6 flex flex-col gap-6">
-            <ProgressStepper currentStep={currentStep} />
-            
-            <Card>
-              <div className="border-b border-border/60 bg-muted/20 px-5 py-4">
-                <div className="flex items-center gap-2 text-sm font-bold text-primary">
-                  <Sparkles className="h-4 w-4 text-accent" />
-                  Hypothesis Parameters
-                </div>
-              </div>
-              <form onSubmit={runQc} className="space-y-4 p-5">
-                <Textarea
-                  value={hypothesis}
-                  onChange={(event) => {
-                    setHypothesis(event.target.value);
-                    setQc(null);
-                    setPlan(null);
-                    setHasImprovedPlan(false);
-                  }}
-                  placeholder="Edit the hypothesis..."
-                  className="font-medium"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input value={domain} onChange={(event) => setDomain(event.target.value)} placeholder="Domain" className="font-mono text-xs" />
-                  <Input value={constraints} onChange={(event) => setConstraints(event.target.value)} placeholder="Constraints" className="font-mono text-xs" />
-                </div>
-                {error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
-                <div className="flex flex-col gap-2 pt-2">
-                  <Button disabled={isBusy || hypothesis.length < 8} type="submit" className="w-full">
-                    {busy === "qc" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                    Run Literature QC
-                  </Button>
-                  <SecondaryButton disabled={isBusy || !qc || hypothesis.length < 8} type="button" onClick={runPlanOnly} className="w-full">
-                    {busy === "plan" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                    Generate Experiment Plan
-                  </SecondaryButton>
-                </div>
-              </form>
+        {/* PLAN PHASE */}
+        {plan ? (
+          <div className="flex flex-col gap-6">
+            <div className="flex justify-start">
+              <SecondaryButton onClick={() => setPlan(null)} className="shadow-sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to research chat
+              </SecondaryButton>
+            </div>
+            <div className="grid gap-6 lg:grid-cols-[1fr]">
+              <ExperimentPlanViewer
+                plan={plan}
+                loading={false}
+                mock={demoMode || plan?.confidence_notes.content.toLowerCase().includes("demo")}
+                qc={qc}
+              />
+              <ScientistReviewPanel
+                hypothesis={hypothesis}
+                plan={plan}
+                onPlanUpdated={(updated) => {
+                  setPlan(updated);
+                  setDemoMode(updated.confidence_notes.content.toLowerCase().includes("demo"));
+                }}
+              />
+            </div>
+          </div>
+        ) : (
+          /* RESEARCH PHASE (CHAT) */
+          <div className="mx-auto max-w-4xl flex flex-col gap-6 pb-24">
+            <div className="text-center mb-4">
+              <p className="text-lg text-muted-foreground leading-relaxed">
+                Chat with AI-SciBuddy about your hypothesis, inspect related work, then generate a grounded experiment plan.
+              </p>
+            </div>
+
+            <HypothesisSummaryCard
+              hypothesis={hypothesis}
+              domain={domain}
+              constraints={constraints}
+              parsedHypothesis={qc?.parsed_hypothesis}
+              suggestedHypothesis={suggestedHypothesis}
+              onApplySuggested={applySuggestedHypothesis}
+            />
+
+            <Card className="p-4 bg-white/70 shadow-soft border-border/60">
+              <ChatMessageList messages={chatMessages} />
+              <ChatComposer
+                onSend={handleSendMessage}
+                disabled={busy === "chat" || busy === "qc" || busy === "plan"}
+                placeholder={hypothesis ? "Ask a follow up or tell me to refine the hypothesis..." : "Enter your scientific hypothesis here..."}
+              />
             </Card>
 
             {busy === "qc" ? (
-              <Card className="bg-white/60 shadow-soft">
+              <Card className="bg-white/60 shadow-soft p-6">
                 <ScientificLoader type="qc" />
               </Card>
-            ) : qc ? (
-              <LiteratureQCPanel qc={qc} loading={false} demo={demoMode} />
-            ) : null}
-          </section>
-
-          {/* RIGHT COLUMN: SCROLLABLE */}
-          <section className="flex flex-col gap-6">
-            {busy === "plan" ? (
-              <Card className="min-h-[400px] flex items-center justify-center bg-white/60">
+            ) : busy === "plan" ? (
+              <Card className="bg-white/60 shadow-soft p-6 min-h-[300px] flex items-center justify-center">
                 <ScientificLoader type="plan" />
               </Card>
-            ) : plan ? (
-              <>
-                <ExperimentPlanViewer
-                  plan={plan}
-                  loading={false}
-                  mock={demoMode || plan?.confidence_notes.content.toLowerCase().includes("demo")}
-                />
-                <ScientistReviewPanel
-                  hypothesis={hypothesis}
-                  plan={plan}
-                  onPlanUpdated={(updated) => {
-                    setPlan(updated);
-                    setHasImprovedPlan(true);
-                    setDemoMode(updated.confidence_notes.content.toLowerCase().includes("demo"));
-                  }}
-                />
-              </>
             ) : (
-              <div className="flex h-[400px] items-center justify-center rounded-xl border border-dashed border-border/80 bg-white/40 backdrop-blur">
-                <div className="text-center">
-                  <FlaskConical className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-                  <p className="text-sm font-semibold text-muted-foreground">Experiment plan will appear here</p>
-                </div>
-              </div>
+              <RelatedWorkSection
+                qc={qc}
+                loadingQC={false}
+                demo={demoMode}
+                onGeneratePlan={runPlanOnly}
+                generatingPlan={false}
+              />
             )}
-          </section>
-        </div>
+          </div>
+        )}
       </div>
     </main>
   );
 }
-

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ElementType } from "react";
 import { Badge, Card } from "@/components/ui";
-import type { ExperimentPlan } from "@/lib/types";
+import type { ExperimentPlan, LiteratureQC } from "@/lib/types";
 import {
   BadgeDollarSign,
   Beaker,
@@ -14,14 +14,18 @@ import {
   CheckCircle2,
   AlertTriangle,
   ExternalLink,
+  Radar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GroundedSection } from "@/lib/types";
 
-type PlanTab = "protocol" | "materials" | "budget" | "timeline" | "validation" | "risks" | "sources";
+import { LiteratureQCPanel } from "./literature-qc-panel";
+
+type PlanTab = "protocol" | "materials" | "budget" | "timeline" | "validation" | "risks" | "sources" | "literature";
 
 const tabs: { id: PlanTab; label: string; icon: ElementType }[] = [
   { id: "protocol", label: "Protocol", icon: FlaskConical },
+  { id: "literature", label: "Literature", icon: Radar },
   { id: "materials", label: "Materials", icon: Beaker },
   { id: "budget", label: "Budget", icon: BadgeDollarSign },
   { id: "timeline", label: "Timeline", icon: Clock3 },
@@ -50,7 +54,7 @@ function SectionMeta({ section, className }: { section: GroundedSection<unknown>
   );
 }
 
-export function ExperimentPlanViewer({ plan, loading, mock }: { plan: ExperimentPlan | null; loading?: boolean; mock?: boolean }) {
+export function ExperimentPlanViewer({ plan, loading, mock, qc }: { plan: ExperimentPlan | null; loading?: boolean; mock?: boolean; qc?: LiteratureQC | null }) {
   const [activeTab, setActiveTab] = useState<PlanTab>("protocol");
 
   if (loading || !plan) {
@@ -155,6 +159,13 @@ export function ExperimentPlanViewer({ plan, loading, mock }: { plan: Experiment
                   ))}
                 </ol>
                 <SectionMeta section={plan.protocol_summary} className="mt-8" />
+              </div>
+            ) : null}
+
+            {activeTab === "literature" ? (
+              <div className="space-y-4">
+                <h3 className="text-lg font-black tracking-tight mb-4">Literature Review</h3>
+                <LiteratureQCPanel qc={qc || null} demo={mock} />
               </div>
             ) : null}
 
