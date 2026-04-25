@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
+from . import databricks_workspace_store
 from .schemas import (
     ExecutionPlan,
     ExecutionTask,
@@ -61,6 +62,15 @@ def _now() -> str:
 
 
 def _read_records() -> list[dict]:
+    if databricks_workspace_store.configured():
+        try:
+            payload = databricks_workspace_store.read_json([])
+            if not isinstance(payload, list):
+                raise ExecutionStoreError("Databricks execution plan storage must contain a JSON list")
+            return payload
+        except Exception as exc:
+            databricks_workspace_store.warn_remote_failure("read", exc)
+
     DATA_DIR.mkdir(exist_ok=True)
     if not EXECUTION_FILE.exists():
         return []
@@ -79,6 +89,13 @@ def _read_records() -> list[dict]:
 
 
 def _write_records(records: list[dict]) -> None:
+    if databricks_workspace_store.configured():
+        try:
+            databricks_workspace_store.write_json(records)
+            return
+        except Exception as exc:
+            databricks_workspace_store.warn_remote_failure("write", exc)
+
     DATA_DIR.mkdir(exist_ok=True)
     try:
         EXECUTION_FILE.write_text(json.dumps(records, indent=2))

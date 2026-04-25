@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Select, SecondaryButton, Textarea } from "@/components/ui";
 import { inviteExecutors, updateExecutionTask } from "@/lib/api";
 import type { ExecutionPlan, ExecutionTask, ExecutionTaskSection, ExecutionTaskStatus, InviteExecutorsResponse } from "@/lib/types";
@@ -327,6 +327,10 @@ export function ExecutionWorkspace({ initialPlan }: { initialPlan: ExecutionPlan
   const [plan, setPlan] = useState(initialPlan);
   const [copied, setCopied] = useState(false);
   const shareUrl = typeof window === "undefined" ? "" : window.location.href;
+
+  useEffect(() => {
+    setPlan(initialPlan);
+  }, [initialPlan]);
 
   const progress = useMemo(() => deriveProgress(plan), [plan]);
 

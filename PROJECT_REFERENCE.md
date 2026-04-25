@@ -43,7 +43,7 @@ AI-SciBuddy converts a **falsifiable scientific hypothesis** into:
 | **Experiment Plan** | Grounded JSON plan with 8 sections, each carrying `content`, `confidence`, `supporting_sources`, and `assumptions` |
 | **Feedback loop** | Scientist submits structured corrections; plan can be regenerated with that feedback in context |
 
-Everything degrades gracefully: no Tavily key → mock search results; no Ollama → deterministic mock plan.
+Everything degrades gracefully: no Tavily key → mock search results; no Databricks access → deterministic mock plan.
 
 ---
 
@@ -56,10 +56,10 @@ Everything degrades gracefully: no Tavily key → mock search results; no Ollama
 | `uvicorn[standard]` | 0.34.0 | ASGI server |
 | `pydantic` | 2.10.4 | Schema validation (`extra="forbid"`, generics) |
 | `tavily-python` | 0.5.0 | Web search SDK |
-| `httpx` | 0.28.1 | Async-capable HTTP client (Ollama calls) |
+| `httpx` | 0.28.1 | Async-capable HTTP client (Databricks AI Gateway calls) |
 | `python-dotenv` | 1.0.1 | `.env` loading |
 
-**AI runtime:** Ollama running Gemma3 locally (`http://localhost:11434`)
+**AI runtime:** Databricks AI Gateway chat completions using Qwen (`databricks-qwen3-next-80b-a3b-instruct`)
 
 ### Frontend
 | Package | Version | Purpose |
@@ -90,7 +90,7 @@ AI-SciBuddy/
 │       ├── schemas.py              # Pydantic models
 │       ├── tavily_client.py        # Search layer (hypothesis parsing + 6-target search)
 │       ├── literature_qc.py        # Novelty classification (LLM + heuristic rubric)
-│       ├── plan_generator.py       # Experiment plan generation via Ollama
+│       ├── plan_generator.py       # Experiment plan generation via Databricks/Qwen
 │       └── feedback_store.py       # JSON file persistence
 │
 └── frontend/
@@ -121,8 +121,11 @@ AI-SciBuddy/
 ```bash
 # Copy .env.example → .env at repo root
 TAVILY_API_KEY=          # Optional — mock results used if absent
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=gemma3
+DATABRICKS_HOST=https://dbc-xxxxxxxx-xxxx.cloud.databricks.com
+DATABRICKS_TOKEN=
+DATABRICKS_BASE_URL=https://7474660200307946.ai-gateway.cloud.databricks.com/mlflow/v1
+DATABRICKS_MODEL=databricks-qwen3-next-80b-a3b-instruct
+DATABRICKS_EXECUTION_STORE_PATH=/Shared/AI-SciBuddy/execution_plans.json
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
@@ -147,15 +150,6 @@ cd frontend
 npm install
 npm run dev   # → http://localhost:3000
 ```
-
-### Ollama (optional)
-
-```bash
-ollama pull gemma3
-# Ollama must be running at localhost:11434
-```
-
----
 
 ## User-Facing Workflow
 
@@ -183,7 +177,7 @@ ollama pull gemma3
 │  Step 3 — Experiment Plan                                      │
 │  • Additional Tavily searches for protocol, materials,         │
 │    validation evidence                                         │
-│  • Ollama/Gemma generates grounded ExperimentPlan JSON         │
+│  • Databricks/Qwen generates grounded ExperimentPlan JSON      │
 │  • Every section has: content + confidence + sources +         │
 │    assumptions (GroundedSection<T> wrapper)                    │
 │  • Displayed in 8 tabbed sections                              │
@@ -195,7 +189,7 @@ ollama pull gemma3
 │  Step 4 — Feedback Loop                                        │
 │  • PI submits: section, rating (1–5), correction, tags         │
 │  • Saved to backend/data/feedback.json                         │
-│  • "Regenerate" re-runs Ollama with feedback in the prompt     │
+│  • "Regenerate" re-runs Databricks/Qwen with feedback          │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -209,10 +203,10 @@ ollama pull gemma3
 |--------|----------|---------|-------------|
 | `GET` | `/api/health` | `health()` | Liveness check |
 | `POST` | `/api/literature-qc` | `literature_qc()` | Parse hypothesis, run 6-target Tavily search, classify novelty |
-| `POST` | `/api/generate-plan` | `create_plan()` | Generate `ExperimentPlan` via Ollama (or mock) |
+| `POST` | `/api/generate-plan` | `create_plan()` | Generate `ExperimentPlan` via Databricks/Qwen (or mock) |
 | `POST` | `/api/feedback` | `create_feedback()` | Persist `ScientistFeedback` |
 | `GET` | `/api/feedback` | `get_feedback()` | List all feedback records |
-| `POST` | `/api/regenerate-with-feedback` | `regenerate()` | Re-prompt Ollama with current plan + scientist feedback |
+| `POST` | `/api/regenerate-with-feedback` | `regenerate()` | Re-prompt Databricks/Qwen with current plan + scientist feedback |
 
 **CORS:** `localhost:3000`, `127.0.0.1:3000` + regex pattern for any local port.
 
@@ -316,8 +310,8 @@ If `TAVILY_API_KEY` is missing or a search throws, realistic mock results are re
 
 #### LLM Classification — `_llm_classification()`
 
-- Posts to Ollama `/api/generate` with 8s timeout
-- Prompts Gemma3 to score each reference on the 5-dimension rubric and return JSON
+- Posts to Databricks AI Gateway `/chat/completions` with 8s timeout
+- Prompts Qwen to score each reference on the 5-dimension rubric and return JSON
 - Validates the returned `novelty_signal` against `_signal_from_total(best_rubric_total)` — LLM can't override the rubric math
 
 #### Heuristic Classification — `_heuristic_classification()`
@@ -337,9 +331,9 @@ If `TAVILY_API_KEY` is missing or a search throws, realistic mock results are re
 
 1. Fetches any missing evidence (protocol, materials, validation) via Tavily
 2. Dedupes all evidence
-3. Builds a large Ollama prompt including: hypothesis, domain, constraints, QC result, all evidence, prior feedback
-4. Calls `_ollama_generate()` → validates into `ExperimentPlan`
-5. If Ollama fails → `_mock_plan()` (deterministic fallback)
+3. Builds a large Databricks/Qwen prompt including: hypothesis, domain, constraints, QC result, all evidence, prior feedback
+4. Calls `_llm_generate()` → validates into `ExperimentPlan`
+5. If Databricks fails → `_mock_plan()` (deterministic fallback)
 6. Runs `_ground_plan()` to fix up invalid source URLs and enforce safety notes
 
 #### `_section()` helper
@@ -348,7 +342,7 @@ Creates a `GroundedSection` dict with `content`, `confidence`, `supporting_sourc
 
 #### Plan schema prompt — `_plan_schema_prompt()`
 
-Instructs Gemma3 to return the full `GroundedSection`-shaped JSON. Critical constraints:
+Instructs Qwen to return the full `GroundedSection`-shaped JSON. Critical constraints:
 - **No wet-lab procedural detail** (no temperatures, doses, timings)
 - **Never invent catalog numbers** — use `"not found in retrieved sources"` if not in Tavily results
 - All `evidence_url` fields must be one of the provided Tavily source URLs
@@ -363,7 +357,7 @@ Post-processing step run after LLM generation:
 
 #### `regenerate_plan_with_feedback(hypothesis, current_plan, feedback)`
 
-Re-prompts Ollama with current plan JSON + scientist feedback JSON. If Ollama fails, applies the feedback note inline to `confidence_notes.content` and `risks_and_assumptions.content`.
+Re-prompts Databricks/Qwen with current plan JSON + scientist feedback JSON. If Databricks fails, applies the feedback note inline to `confidence_notes.content` and `risks_and_assumptions.content`.
 
 ---
 
@@ -567,8 +561,8 @@ Produces realistic fixture objects for offline use. `demoExperimentPlan()` must 
 |---------|--------|
 | `TAVILY_API_KEY` | `MOCK_RESULTS` per source type returned (all `mock=true`) |
 | Tavily network error | Same mock fallback; warning logged |
-| Ollama unreachable (QC) | `_heuristic_classification()` used instead |
-| Ollama unreachable (plan) | `_mock_plan()` returns deterministic structured plan |
+| Databricks unavailable (QC) | `_heuristic_classification()` used instead |
+| Databricks unavailable (plan) | `_mock_plan()` returns deterministic structured plan |
 | Backend API error (frontend) | `demoLiteratureQC()` or `demoExperimentPlan()` fixtures; amber "Demo data" badge shown |
 
 ---

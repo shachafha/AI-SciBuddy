@@ -10,7 +10,7 @@ Turning a high-level scientific hypothesis into a structured, PI-review-ready ex
 The application is built with a modern, intentional stack designed for speed and reliability:
 *   **Frontend**: Next.js (React 19), styled with Tailwind CSS, providing a polished and responsive UI.
 *   **Backend**: FastAPI (Python), serving robust endpoints for plan generation and feedback management.
-*   **AI Models**: Uses local Ollama (Gemma 3) for deterministic, structured plan generation without relying on expensive cloud LLMs.
+*   **AI Models**: Uses Databricks AI Gateway with Qwen for structured plan generation, with deterministic local fallbacks for demo resilience.
 
 ## Agentic Skills & Integrations
 AI SciBuddy is supercharged with a suite of external agentic skills to handle UI/UX design, web scraping, and multi-agent orchestration seamlessly:
@@ -37,11 +37,14 @@ Copy `.env.example` to `.env` at the repo root or export the variables in your s
 
 ```bash
 TAVILY_API_KEY=your_tavily_key
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=gemma3
+DATABRICKS_HOST=https://dbc-xxxxxxxx-xxxx.cloud.databricks.com
+DATABRICKS_TOKEN=your_databricks_token
+DATABRICKS_BASE_URL=https://7474660200307946.ai-gateway.cloud.databricks.com/mlflow/v1
+DATABRICKS_MODEL=databricks-qwen3-next-80b-a3b-instruct
+DATABRICKS_EXECUTION_STORE_PATH=/Shared/AI-SciBuddy/execution_plans.json
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
-*(Note: If `TAVILY_API_KEY` or Ollama is missing, the app gracefully falls back to deterministic mock data so the demo always works!)*
+*(Note: If `TAVILY_API_KEY` or Databricks is missing, the app gracefully falls back to deterministic mock data so the demo always works!)*
 
 ### Backend Setup
 ```bash

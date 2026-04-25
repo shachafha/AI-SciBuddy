@@ -20,18 +20,20 @@ export default function PlanExecutionPage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadPlan() {
-      setLoading(true);
+    async function loadPlan(showLoading = false) {
+      if (showLoading) {
+        setLoading(true);
+      }
       setError(null);
-      setFallbackMode(false);
       try {
         const response = await getExecutionPlan(params.planId);
         if (!cancelled) {
           setPlan(response);
+          setFallbackMode(false);
         }
       } catch (err) {
         if (!cancelled) {
-          setPlan(demoExecutionPlan(params.planId));
+          setPlan((current) => current ?? demoExecutionPlan(params.planId));
           setFallbackMode(true);
           setError(err instanceof Error ? err.message : "Execution plan not found");
         }
@@ -42,9 +44,14 @@ export default function PlanExecutionPage() {
       }
     }
 
-    loadPlan();
+    loadPlan(true);
+    const poll = window.setInterval(() => {
+      void loadPlan(false);
+    }, 5000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(poll);
     };
   }, [params.planId]);
 

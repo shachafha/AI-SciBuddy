@@ -1,10 +1,8 @@
 import json
-import os
 from json import JSONDecodeError
 from typing import Any, Literal
 
-import httpx
-
+from .llm_client import databricks_prompt
 from .schemas import LiteratureQC, LiteratureReference, ParsedHypothesis, ReferenceRubricScore, TavilyEvidence
 from .tavily_client import TavilySearchResult, search_all_targets
 
@@ -126,8 +124,6 @@ def _heuristic_classification(results: list[TavilySearchResult], parsed: ParsedH
 
 
 def _llm_classification(hypothesis: str, parsed_hypothesis: ParsedHypothesis, results: list[TavilySearchResult]) -> Classification | None:
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-    model = os.getenv("OLLAMA_MODEL", "gemma3")
     compact_results = [
         {
             "title": result["title"],
@@ -192,19 +188,9 @@ Return only JSON:
 """.strip()
 
     try:
-        response = httpx.post(
-            f"{base_url}/api/generate",
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {"temperature": 0.1},
-            },
-            timeout=8,
-        )
-        response.raise_for_status()
-        raw = response.json().get("response", "")
+        raw = databricks_prompt(prompt, temperature=0.1, timeout=8)
+        if raw is None:
+            return None
         parsed = _extract_json(raw)
         signal = parsed.get("novelty_signal")
         if signal not in {"not_found", "similar_work_exists", "exact_match_found"}:
