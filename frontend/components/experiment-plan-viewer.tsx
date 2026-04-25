@@ -111,6 +111,7 @@ export function ExperimentPlanViewer({ plan, loading, mock, qc }: { plan: Experi
         {/* Sidebar Rail */}
         <div className="border-b xl:border-b-0 xl:border-r border-border/60 bg-white/40 xl:w-56 shrink-0 flex flex-row xl:flex-col overflow-x-auto xl:overflow-visible p-2 gap-1">
           {tabs.map((tab) => {
+            if (!qc && tab.id === "literature") return null;
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             const isUpdated = plan.updated_sections?.includes(tab.id);
@@ -164,8 +165,14 @@ export function ExperimentPlanViewer({ plan, loading, mock, qc }: { plan: Experi
 
             {activeTab === "literature" ? (
               <div className="space-y-4">
-                <h3 className="text-lg font-black tracking-tight mb-4">Literature Review</h3>
-                <LiteratureQCPanel qc={qc || null} demo={mock} />
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-black tracking-tight">Literature Review</h3>
+                </div>
+                <div className="rounded-md bg-emerald-50 text-emerald-900 border border-emerald-200 px-4 py-3 text-sm font-medium flex items-center gap-2 mb-6">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  This literature review was used to ground the generated experiment plan.
+                </div>
+                <LiteratureQCPanel qc={qc || null} demo={mock} compact={true} />
               </div>
             ) : null}
 

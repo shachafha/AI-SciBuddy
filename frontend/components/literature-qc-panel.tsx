@@ -43,7 +43,7 @@ function RubricMini({ score }: { score?: ReferenceRubricScore }) {
   );
 }
 
-export function LiteratureQCPanel({ qc, loading, demo }: { qc: LiteratureQC | null; loading?: boolean; demo?: boolean }) {
+export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: LiteratureQC | null; loading?: boolean; demo?: boolean; compact?: boolean }) {
   if (loading) {
     return (
       <Card className="overflow-hidden p-6 shadow-soft border-primary/20 bg-gradient-to-br from-white to-primary/5">
@@ -73,8 +73,8 @@ export function LiteratureQCPanel({ qc, loading, demo }: { qc: LiteratureQC | nu
   }
 
   return (
-    <Card className="p-6 shadow-soft border-border/60 bg-white/90">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4 mb-4">
+    <Card className={`shadow-soft border-border/60 bg-white/90 ${compact ? "p-0 border-0 shadow-none bg-transparent" : "p-6"}`}>
+      <div className={`flex flex-wrap items-center justify-between gap-3 border-b border-border/60 ${compact ? "pb-3 mb-3" : "pb-4 mb-4"}`}>
         <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-primary">
           <Radar className="h-4 w-4" />
           Literature QC Results
