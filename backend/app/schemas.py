@@ -78,6 +78,9 @@ class ScientistFeedback(StrictModel):
     rating: int = Field(..., ge=1, le=5)
     correction: str = Field(..., min_length=2)
     tags: list[str] = Field(default_factory=list)
+    hypothesis: str = ""
+    parsed_domain: str = ""
+    experiment_type: str = ""
 
 
 class GeneratePlanRequest(HypothesisInput):

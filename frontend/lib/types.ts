@@ -118,6 +118,9 @@ export type ScientistFeedback = {
   rating: number;
   correction: string;
   tags: string[];
+  hypothesis?: string;
+  parsed_domain?: string;
+  experiment_type?: string;
 };
 
 export type FeedbackRecord = ScientistFeedback & {

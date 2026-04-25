@@ -59,6 +59,9 @@ export function ScientistReviewPanel({
       rating,
       correction,
       tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      hypothesis: hypothesis,
+      parsed_domain: "",
+      experiment_type: "",
     };
   }
 

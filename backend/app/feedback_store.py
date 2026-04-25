@@ -36,3 +36,26 @@ def add_feedback(feedback: ScientistFeedback) -> FeedbackRecord:
 
 def list_feedback() -> list[FeedbackRecord]:
     return [FeedbackRecord(**record) for record in _read_records()]
+
+
+def get_relevant_feedback(hypothesis: str, parsed_domain: str, experiment_type: str) -> list[FeedbackRecord]:
+    records = list_feedback()
+    
+    hyp_words = set(hypothesis.lower().split())
+    
+    scored_records = []
+    for r in records:
+        score = 0
+        if parsed_domain and r.parsed_domain and parsed_domain.lower() == r.parsed_domain.lower():
+            score += 10
+            
+        if r.hypothesis:
+            r_words = set(r.hypothesis.lower().split())
+            overlap = len(hyp_words.intersection(r_words))
+            score += overlap
+            
+        if score > 0:
+            scored_records.append((score, r))
+            
+    scored_records.sort(key=lambda x: x[0], reverse=True)
+    return [r for score, r in scored_records[:3]]

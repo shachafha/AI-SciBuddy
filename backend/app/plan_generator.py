@@ -373,7 +373,12 @@ def generate_plan(
         validation_evidence,
     )
     evidence = _dedupe_evidence(protocols + materials + validation)
+    
     feedback = prior_feedback or []
+    if not feedback:
+        from .feedback_store import get_relevant_feedback
+        feedback = get_relevant_feedback(hypothesis, domain or "", "")
+        
     qc_context = qc.model_dump() if qc else None
 
     prompt = f"""
@@ -397,8 +402,8 @@ Literature QC:
 Tavily evidence from protocol, materials, and validation searches:
 {json.dumps(_evidence_context(evidence))}
 
-Prior scientist feedback:
-{json.dumps([item.model_dump() for item in feedback])}
+Expert lessons learned (from relevant past feedback):
+{json.dumps([{"correction": item.correction, "section": item.section, "rating": item.rating} for item in feedback])}
 
 Requirements:
 - Include executive summary, protocol summary, materials and supply chain hints, budget, timeline, validation, risks, safety/ethics notes, and source trace.
