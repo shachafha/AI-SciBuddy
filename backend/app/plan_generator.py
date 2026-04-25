@@ -284,7 +284,8 @@ Return one valid JSON object with exactly this shape:
     "confidence": 0,
     "supporting_sources": ["URL from provided Tavily evidence"],
     "assumptions": ["string"]
-  }
+  },
+  "updated_sections": ["string"]
 }
 Do not include markdown. Do not include temperatures, doses, timings, recipes, exact procedural parameters, or instructions that would let an untrained person run a biological or chemical experiment.
 Never invent catalog numbers. If a catalog number is not explicitly present in retrieved sources, set catalog_number to "not found in retrieved sources".
@@ -438,6 +439,9 @@ Scientist feedback:
 {feedback.model_dump_json()}
 
 Do not add operational wet-lab detail. Keep all major claims tied to existing source_trace URLs.
+Add a note saying "Updated based on expert feedback" to confidence_notes.
+Include the feedback item as a new entry in source_trace with title="Expert Feedback", url="#feedback", and source="Scientist Review".
+List the section name that was modified in updated_sections.
 
 {_plan_schema_prompt()}
 """.strip()
@@ -447,6 +451,14 @@ Do not add operational wet-lab detail. Keep all major claims tied to existing so
         return _ground_plan(plan, None, [])
 
     revised = current_plan.model_copy(deep=True)
-    revised.confidence_notes.content = f"{revised.confidence_notes.content} Revised in demo mode from feedback on {feedback.section}: {feedback.correction}"
+    revised.confidence_notes.content = f"{revised.confidence_notes.content} Updated based on expert feedback in demo mode from {feedback.section}: {feedback.correction}"
     revised.risks_and_assumptions.content.append(f"Reviewer correction to resolve: {feedback.correction}")
+    if feedback.section not in revised.updated_sections:
+        revised.updated_sections.append(feedback.section)
+    
+    revised.source_trace.append(SourceCitation(
+        title="Expert Feedback",
+        url="#feedback",
+        source="Scientist Review"
+    ))
     return revised

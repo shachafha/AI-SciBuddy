@@ -150,6 +150,7 @@ class ExperimentPlan(StrictModel):
     safety_and_ethics_notes: GroundedSection[list[str]]
     source_trace: list[SourceCitation]
     confidence_notes: GroundedSection[str]
+    updated_sections: list[str] = Field(default_factory=list)
 
 
 class FeedbackRecord(ScientistFeedback):

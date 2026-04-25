@@ -119,20 +119,29 @@ export function ExperimentPlanViewer({ plan, loading, mock }: { plan: Experiment
         <div className="flex gap-2 overflow-x-auto pb-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
+            const isUpdated = plan.updated_sections?.includes(tab.id);
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "inline-flex h-9 shrink-0 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition",
+                  "relative inline-flex h-9 shrink-0 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition",
                   activeTab === tab.id
                     ? "border-primary bg-white text-primary shadow-sm"
+                    : isUpdated
+                    ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
                     : "border-transparent text-muted-foreground hover:bg-white",
                 )}
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}
+                {isUpdated && (
+                  <span className="absolute -right-1 -top-1 flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500"></span>
+                  </span>
+                )}
               </button>
             );
           })}

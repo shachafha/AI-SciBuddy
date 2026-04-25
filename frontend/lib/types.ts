@@ -110,6 +110,7 @@ export type ExperimentPlan = {
   safety_and_ethics_notes: GroundedSection<string[]>;
   source_trace: SourceCitation[];
   confidence_notes: GroundedSection<string>;
+  updated_sections?: string[];
 };
 
 export type ScientistFeedback = {
