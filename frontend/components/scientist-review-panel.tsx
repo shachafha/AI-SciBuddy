@@ -71,9 +71,6 @@ export function ScientistReviewPanel({
       rating,
       correction,
       tags: selectedTags,
-      hypothesis: hypothesis,
-      parsed_domain: "",
-      experiment_type: "",
     };
   }
 
