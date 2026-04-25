@@ -4,10 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
+from .chat_literature import chat_about_literature
 from .feedback_store import add_feedback, list_feedback
 from .literature_qc import assess_literature_qc
 from .plan_generator import generate_plan, regenerate_plan_with_feedback
 from .schemas import (
+    ChatAboutLiteratureRequest,
+    ChatAboutLiteratureResponse,
     FeedbackRecord,
     ExperimentPlan,
     GeneratePlanRequest,
@@ -69,3 +72,8 @@ def get_feedback() -> list[FeedbackRecord]:
 @app.post("/api/regenerate-with-feedback", response_model=ExperimentPlan)
 def regenerate(payload: RegenerateRequest) -> ExperimentPlan:
     return regenerate_plan_with_feedback(payload.hypothesis, payload.current_plan, payload.feedback)
+
+
+@app.post("/api/chat-literature", response_model=ChatAboutLiteratureResponse)
+def chat_literature(payload: ChatAboutLiteratureRequest) -> ChatAboutLiteratureResponse:
+    return chat_about_literature(payload)
