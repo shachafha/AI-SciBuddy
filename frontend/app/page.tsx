@@ -124,24 +124,43 @@ export default function Home() {
     }
   }
 
+  function dismissSuggestedHypothesis() {
+    setSuggestedHypothesis(null);
+  }
+
   async function applySuggestedHypothesis() {
     if (!suggestedHypothesis) return;
-    setHypothesis(suggestedHypothesis);
+    const newHyp = suggestedHypothesis;
+    setHypothesis(newHyp);
     setSuggestedHypothesis(null);
+    setRefreshQcPending(false);
 
-    if (refreshQcPending) {
-      setRefreshQcPending(false);
-      setQc(null);
-      await performQC(suggestedHypothesis);
+    setChatMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "Updated the working hypothesis. I’ll refresh the related-work review for the revised hypothesis." }
+    ]);
+
+    setBusy("qc");
+    try {
+      const response = await runLiteratureQC({ hypothesis: newHyp, domain: domain || undefined, constraints: constraints || undefined });
+      setQc(response);
+      setDemoMode(false);
+      
+      let signalText = "I found some similar work.";
+      if (response.novelty_signal === "not_found") signalText = "I didn't find any exact matches for this.";
+      else if (response.novelty_signal === "exact_match_found") signalText = "I found an exact match or extremely similar work in the literature.";
+      
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "I've applied your revised hypothesis and refreshed the literature QC below!" }
+        { role: "assistant", content: `QC refresh complete. ${signalText} The related work below is now updated.` }
       ]);
-    } else {
+    } catch (err) {
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "I've updated the working hypothesis." }
+        { role: "assistant", content: "I encountered an error while refreshing the related-work review. The previous literature QC results have been retained." }
       ]);
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -233,6 +252,7 @@ export default function Home() {
               parsedHypothesis={qc?.parsed_hypothesis}
               suggestedHypothesis={suggestedHypothesis}
               onApplySuggested={applySuggestedHypothesis}
+              onDismissSuggested={dismissSuggestedHypothesis}
             />
 
             <Card className="p-4 bg-white/70 shadow-soft border-border/60">

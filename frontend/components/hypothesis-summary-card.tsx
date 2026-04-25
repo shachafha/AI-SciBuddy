@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Card, Badge, Button } from "@/components/ui";
 import type { ParsedHypothesis } from "@/lib/types";
-import { AlertCircle, CheckCircle2, ChevronRight } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, X } from "lucide-react";
 
 interface HypothesisSummaryCardProps {
   hypothesis: string;
@@ -10,6 +10,7 @@ interface HypothesisSummaryCardProps {
   parsedHypothesis?: ParsedHypothesis | null;
   suggestedHypothesis?: string | null;
   onApplySuggested: () => void;
+  onDismissSuggested: () => void;
 }
 
 export function HypothesisSummaryCard({
@@ -19,6 +20,7 @@ export function HypothesisSummaryCard({
   parsedHypothesis,
   suggestedHypothesis,
   onApplySuggested,
+  onDismissSuggested,
 }: HypothesisSummaryCardProps) {
   return (
     <Card className="flex flex-col gap-3 p-4 bg-white/80 backdrop-blur-sm border-border shadow-sm sticky top-4 z-10">
@@ -51,7 +53,14 @@ export function HypothesisSummaryCard({
           <p className="text-sm text-indigo-900 leading-relaxed bg-white/60 p-2 rounded border border-indigo-100 italic">
             {suggestedHypothesis}
           </p>
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex justify-end gap-2">
+            <Button
+              onClick={onDismissSuggested}
+              className="h-8 text-xs px-3 bg-white hover:bg-slate-50 border-indigo-200 text-indigo-700 shadow-sm"
+            >
+              <X className="w-3.5 h-3.5 mr-1.5" />
+              Dismiss
+            </Button>
             <Button
               onClick={onApplySuggested}
               className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-8 text-xs px-3"
