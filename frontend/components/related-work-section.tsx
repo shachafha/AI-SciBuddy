@@ -34,7 +34,7 @@ export function RelatedWorkSection({ qc, loadingQC, demo, onGeneratePlan, genera
             {generatingPlan ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating Draft...
+                <span aria-live="polite">Generating grounded experiment plan…</span>
               </>
             ) : (
               <>

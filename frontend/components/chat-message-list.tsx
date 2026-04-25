@@ -3,7 +3,7 @@ import type { ChatMessage } from "@/lib/types";
 import { User, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function ChatMessageList({ messages }: { messages: ChatMessage[] }) {
+export function ChatMessageList({ messages, isTyping, onPromptSelect }: { messages: ChatMessage[], isTyping?: boolean, onPromptSelect?: (prompt: string) => void }) {
   const bottomRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -11,13 +11,31 @@ export function ChatMessageList({ messages }: { messages: ChatMessage[] }) {
   }, [messages]);
 
   if (messages.length === 0) {
+    const examples = [
+      "Test whether low-dose senolytic priming reduces oxidative stress in aged fibroblasts.",
+      "Is this hypothesis novel?",
+      "What related work should I worry about?",
+      "Rewrite this into a more testable hypothesis."
+    ];
+    
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center bg-white/50 border border-dashed border-border/80 rounded-xl mt-4">
         <Sparkles className="w-8 h-8 text-primary/40 mb-3" />
         <p className="text-sm font-medium text-slate-700">No messages yet.</p>
-        <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+        <p className="text-xs text-muted-foreground mt-1 mb-6 max-w-sm">
           Enter a hypothesis below to begin, ask about the novelty of your idea, or generate an experiment plan after reviewing related work.
         </p>
+        <div className="flex flex-col gap-2 w-full max-w-md">
+          {examples.map((ex, i) => (
+            <button
+              key={i}
+              onClick={() => onPromptSelect?.(ex)}
+              className="text-left text-xs bg-white border border-border/50 hover:border-primary/30 hover:bg-primary/5 rounded-lg p-3 text-slate-600 transition-colors"
+            >
+              "{ex}"
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
@@ -64,6 +82,23 @@ export function ChatMessageList({ messages }: { messages: ChatMessage[] }) {
           </div>
         );
       })}
+      
+      {isTyping && (
+        <div className="flex w-full gap-3 max-w-[85%] mr-auto" aria-live="polite">
+          <div className="flex-shrink-0 mt-1">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+              <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+            </div>
+          </div>
+          <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm bg-white border border-border/60 text-slate-800 rounded-tl-sm flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+            <span className="sr-only">Assistant is typing...</span>
+          </div>
+        </div>
+      )}
+      
       <div ref={bottomRef} className="h-1 shrink-0" />
     </div>
   );

@@ -118,7 +118,7 @@ export default function Home() {
     } catch (err) {
       setChatMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "I'm having trouble connecting right now, but you can proceed to generate the plan if you are ready." }
+        { role: "assistant", content: "I couldn't reach the chat endpoint, but you can still inspect the related work below or generate a plan." }
       ]);
     } finally {
       setBusy(null);
@@ -274,7 +274,11 @@ export default function Home() {
             />
 
             <Card className="p-4 bg-white/70 shadow-soft border-border/60">
-              <ChatMessageList messages={chatMessages} />
+              <ChatMessageList 
+                messages={chatMessages} 
+                isTyping={busy === "chat"} 
+                onPromptSelect={(prompt) => handleSendMessage(prompt)} 
+              />
               <ChatComposer
                 onSend={handleSendMessage}
                 disabled={busy === "chat" || busy === "qc" || busy === "plan"}
@@ -282,23 +286,13 @@ export default function Home() {
               />
             </Card>
 
-            {busy === "qc" ? (
-              <Card className="bg-white/60 shadow-soft p-6">
-                <ScientificLoader type="qc" />
-              </Card>
-            ) : busy === "plan" ? (
-              <Card className="bg-white/60 shadow-soft p-6 min-h-[300px] flex items-center justify-center">
-                <ScientificLoader type="plan" />
-              </Card>
-            ) : (
-              <RelatedWorkSection
-                qc={qc}
-                loadingQC={false}
-                demo={demoMode}
-                onGeneratePlan={runPlanOnly}
-                generatingPlan={false}
-              />
-            )}
+            <RelatedWorkSection
+              qc={qc}
+              loadingQC={busy === "qc"}
+              demo={demoMode}
+              onGeneratePlan={runPlanOnly}
+              generatingPlan={busy === "plan"}
+            />
           </div>
         )}
       </div>

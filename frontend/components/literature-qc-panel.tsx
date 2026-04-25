@@ -69,9 +69,9 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
   if (loading) {
     return (
       <Card className="overflow-hidden p-6 shadow-soft border-primary/20 bg-gradient-to-br from-white to-primary/5">
-        <div className="flex items-center gap-3 text-sm font-bold uppercase tracking-wider text-primary">
+        <div className="flex items-center gap-3 text-sm font-bold uppercase tracking-wider text-primary" aria-live="polite">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Searching prior work & protocols...
+          Searching related work and scoring novelty…
         </div>
         <div className="mt-6 space-y-4">
           <div className="h-3 w-2/3 animate-pulse rounded-full bg-primary/20" />
