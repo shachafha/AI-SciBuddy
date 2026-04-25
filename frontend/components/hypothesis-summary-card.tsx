@@ -26,17 +26,6 @@ export function HypothesisSummaryCard({
 }: HypothesisSummaryCardProps) {
   return (
     <Card className="flex flex-col gap-3 p-4 bg-white/80 backdrop-blur-sm border-border shadow-sm sticky top-4 z-10">
-      <div className="flex flex-wrap items-center gap-2 mb-1">
-        <Badge className="bg-primary/10 text-primary border-primary/20">
-          {domain || "Domain Unspecified"}
-        </Badge>
-        {constraints && (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-            Constraints Applied
-          </Badge>
-        )}
-      </div>
-
       <div className="space-y-1.5">
         <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           Current Hypothesis

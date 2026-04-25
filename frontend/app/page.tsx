@@ -65,8 +65,11 @@ export default function Home() {
 
   async function handleInitialize() {
     if (!hypothesis.trim()) return;
-    const msg: ChatMessage = { role: "user", content: hypothesis };
-    setChatMessages([msg]);
+    
+    // Do not render the initial user message. Set loading state instead.
+    setChatMessages([
+      { role: "assistant", content: "Analyzing your hypothesis and searching for related work..." }
+    ]);
     
     const newQc = await performQC(hypothesis);
     
@@ -200,61 +203,52 @@ export default function Home() {
         )}
 
         {/* HERO / INPUT AREA */}
-        <div className={`flex flex-col items-center justify-center transition-all duration-700 ${hasStarted ? "pt-8 pb-8" : "min-h-[80vh] py-12"}`}>
-          <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary shadow-sm backdrop-blur">
-            ⚗ SCIBUDDY ARCHITECTURE V2.0
-          </div>
+        <div className={`flex flex-col items-center justify-center transition-all duration-700 ${hasStarted ? "pt-8 pb-4" : "min-h-[80vh] py-12"}`}>
           <h1 className="mb-4 text-4xl font-black tracking-tight sm:text-6xl text-slate-900">
             AI SciBuddy
           </h1>
-          <p className="mb-10 max-w-2xl text-center text-lg text-slate-600 leading-relaxed px-4">
-            A modern AI science workspace. Provide a hypothesis to trigger literature QC, automated planning, and structured scientific review.
-          </p>
+          {viewMode === "chat" && !hasStarted && (
+            <>
+              <p className="mb-8 max-w-2xl text-center text-lg text-slate-600 leading-relaxed px-4">
+                A modern AI science workspace. Provide a hypothesis to trigger literature QC, automated planning, and structured scientific review.
+              </p>
 
-          <Card className="w-full max-w-[900px] p-2 bg-white/80 backdrop-blur-md shadow-xl border-border/60 rounded-2xl mx-4">
-            <textarea
-              value={hypothesis}
-              onChange={(e) => setHypothesis(e.target.value)}
-              placeholder="Start with a scientific hypothesis..."
-              className="w-full min-h-[120px] resize-none bg-transparent p-4 text-lg outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
-              disabled={hasStarted || isBusy}
-            />
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-2 border-t border-border/40 mt-2 bg-white/50 rounded-xl">
-              <input
-                type="text"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-                placeholder="Optional domain"
-                className="w-full sm:w-64 bg-white border border-border/50 rounded-lg px-4 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-50"
-                disabled={hasStarted || isBusy}
-              />
-              <Button
-                onClick={handleInitialize}
-                disabled={hasStarted || isBusy || !hypothesis.trim()}
-                className="w-full sm:w-auto h-10 px-6 rounded-lg bg-primary hover:bg-primary/90 text-white shadow-md transition-all font-medium"
-              >
-                Initialize
-                <SendHorizontal className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </Card>
+              <Card className="w-full max-w-[900px] p-2 bg-white/80 backdrop-blur-md shadow-xl border-border/60 rounded-2xl mx-4">
+                <textarea
+                  value={hypothesis}
+                  onChange={(e) => setHypothesis(e.target.value)}
+                  placeholder="Start with a scientific hypothesis..."
+                  className="w-full min-h-[80px] resize-none bg-transparent p-4 text-lg outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
+                  disabled={hasStarted || isBusy}
+                />
+                <div className="flex justify-end p-2 border-t border-border/40 mt-2 bg-white/50 rounded-xl">
+                  <Button
+                    onClick={handleInitialize}
+                    disabled={hasStarted || isBusy || !hypothesis.trim()}
+                    className="w-full sm:w-auto h-10 px-6 rounded-lg bg-primary hover:bg-primary/90 text-white shadow-md transition-all font-medium"
+                  >
+                    Initialize
+                    <SendHorizontal className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </Card>
 
-          {!hasStarted && (
-            <div className="mt-10 flex flex-wrap justify-center gap-3 max-w-3xl px-4 opacity-80">
-              {[
-                "Test whether low-dose senolytic priming reduces oxidative stress in aged fibroblasts.",
-                "Can CRISPR-Cas9 be used to treat cystic fibrosis via aerosol delivery?",
-                "Evaluate if high-intensity interval training improves neuroplasticity in early-stage Alzheimer's.",
-              ].map((ex, i) => (
-                <button
-                  key={i}
-                  onClick={() => setHypothesis(ex)}
-                  className="text-xs bg-white/60 border border-border/50 hover:border-primary/40 hover:bg-white shadow-sm rounded-full px-4 py-2 text-slate-600 transition-all"
-                >
-                  {ex}
-                </button>
-              ))}
-            </div>
+              <div className="mt-10 flex flex-wrap justify-center gap-3 max-w-3xl px-4 opacity-80">
+                {[
+                  "Test whether low-dose senolytic priming reduces oxidative stress in aged fibroblasts.",
+                  "Can CRISPR-Cas9 be used to treat cystic fibrosis via aerosol delivery?",
+                  "Evaluate if high-intensity interval training improves neuroplasticity in early-stage Alzheimer's.",
+                ].map((ex, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setHypothesis(ex)}
+                    className="text-xs bg-white/60 border border-border/50 hover:border-primary/40 hover:bg-white shadow-sm rounded-full px-4 py-2 text-slate-600 transition-all"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
 
@@ -332,19 +326,6 @@ export default function Home() {
                 placeholder={hypothesis ? "Ask a follow up or tell me to refine the hypothesis..." : "Enter your scientific hypothesis here..."}
               />
             </Card>
-
-            {plan && (
-              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2">
-                <div className="flex items-center gap-2 text-emerald-900 text-sm font-medium">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  You have an active experiment plan for the current hypothesis.
-                </div>
-                <Button onClick={() => setViewMode("plan")} className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 text-sm shadow-sm">
-                  View Plan
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            )}
 
             <RelatedWorkSection
               qc={qc}
