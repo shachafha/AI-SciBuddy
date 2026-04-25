@@ -3,7 +3,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-lg border border-border bg-white/82 shadow-soft backdrop-blur", className)} {...props} />;
+  return <div className={cn("rounded-xl border border-border/80 bg-white shadow-sm overflow-hidden", className)} {...props} />;
 }
 
 export function Button({
@@ -15,7 +15,7 @@ export function Button({
   return (
     <Comp
       className={cn(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-55",
+        "inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-55 active:scale-[0.98]",
         className,
       )}
       {...props}
@@ -27,7 +27,7 @@ export function SecondaryButton(props: React.ButtonHTMLAttributes<HTMLButtonElem
   return (
     <Button
       {...props}
-      className={cn("border border-border bg-white text-foreground hover:bg-muted", props.className)}
+      className={cn("border border-border bg-white text-foreground hover:bg-muted/60 shadow-sm", props.className)}
     />
   );
 }
@@ -37,7 +37,7 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
     <textarea
       {...props}
       className={cn(
-        "min-h-32 w-full resize-y rounded-md border border-border bg-white px-3 py-3 text-sm outline-none ring-primary/20 transition placeholder:text-muted-foreground focus:ring-4",
+        "min-h-32 w-full resize-y rounded-md border border-border bg-white px-3 py-3 text-sm outline-none shadow-sm transition placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20",
         props.className,
       )}
     />
@@ -49,7 +49,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cn(
-        "h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none ring-primary/20 transition placeholder:text-muted-foreground focus:ring-4",
+        "h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none shadow-sm transition placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20",
         props.className,
       )}
     />
@@ -61,7 +61,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     <select
       {...props}
       className={cn(
-        "h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none ring-primary/20 transition focus:ring-4",
+        "h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none shadow-sm transition focus:ring-2 focus:ring-primary/20",
         props.className,
       )}
     />
@@ -72,7 +72,7 @@ export function Badge({ className, ...props }: React.HTMLAttributes<HTMLSpanElem
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground",
+        "inline-flex items-center rounded-md font-mono border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground tracking-wide uppercase",
         className,
       )}
       {...props}

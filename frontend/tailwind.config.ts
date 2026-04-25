@@ -4,6 +4,10 @@ const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-bricolage)", "sans-serif"],
+        mono: ["var(--font-jetbrains)", "monospace"],
+      },
       colors: {
         border: "hsl(var(--border))",
         background: "hsl(var(--background))",
@@ -24,4 +28,3 @@ const config: Config = {
 };
 
 export default config;
-

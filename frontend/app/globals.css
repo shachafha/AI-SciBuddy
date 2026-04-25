@@ -3,14 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --background: 48 42% 97%;
+  --background: 210 20% 98%;
   --foreground: 222 41% 13%;
-  --muted: 204 18% 90%;
+  --muted: 210 20% 94%;
   --muted-foreground: 215 16% 41%;
-  --border: 214 22% 84%;
-  --primary: 173 63% 28%;
+  --border: 214 32% 91%;
+  --primary: 200 80% 20%;
   --primary-foreground: 0 0% 100%;
-  --accent: 22 86% 58%;
+  --accent: 14 90% 60%;
   --accent-foreground: 222 41% 13%;
 }
 
@@ -21,8 +21,8 @@
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(45, 212, 191, 0.18), transparent 30%),
-    linear-gradient(180deg, #fbfaf5 0%, #eef5f2 100%);
+    radial-gradient(circle at top left, rgba(20, 150, 180, 0.08), transparent 40%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   color: hsl(var(--foreground));
 }
 
