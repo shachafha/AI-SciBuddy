@@ -1,4 +1,4 @@
-import type { ExperimentPlan, FeedbackRecord, HypothesisInput, LiteratureQC, ScientistFeedback } from "./types";
+import type { ChatAboutLiteratureRequest, ChatAboutLiteratureResponse, ExperimentPlan, FeedbackRecord, HypothesisInput, LiteratureQC, ScientistFeedback } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -48,5 +48,12 @@ export function regenerateWithFeedback(hypothesis: string, currentPlan: Experime
   return request<ExperimentPlan>("/api/regenerate-with-feedback", {
     method: "POST",
     body: JSON.stringify({ hypothesis, current_plan: currentPlan, feedback }),
+  });
+}
+
+export function chatAboutLiterature(payload: ChatAboutLiteratureRequest) {
+  return request<ChatAboutLiteratureResponse>("/api/chat-literature", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
