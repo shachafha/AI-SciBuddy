@@ -76,4 +76,18 @@ def regenerate(payload: RegenerateRequest) -> ExperimentPlan:
 
 @app.post("/api/chat-literature", response_model=ChatAboutLiteratureResponse)
 def chat_literature(payload: ChatAboutLiteratureRequest) -> ChatAboutLiteratureResponse:
+    """
+    Chat endpoint for interacting with the AI about hypotheses and literature QC results.
+    
+    Test with curl:
+    ```bash
+    curl -X 'POST' \
+      'http://localhost:8000/api/chat-literature' \
+      -H 'Content-Type: application/json' \
+      -d '{
+      "messages": [{"role": "user", "content": "Is this hypothesis novel?"}],
+      "hypothesis": "Low dose aspirin prevents hair loss"
+    }'
+    ```
+    """
     return chat_about_literature(payload)
