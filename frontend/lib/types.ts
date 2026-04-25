@@ -128,3 +128,25 @@ export type FeedbackRecord = ScientistFeedback & {
   id: string;
   created_at: string;
 };
+
+export type ChatRole = "user" | "assistant" | "system";
+
+export type ChatMessage = {
+  role: ChatRole;
+  content: string;
+  created_at?: string | null;
+};
+
+export type ChatAboutLiteratureRequest = {
+  messages: ChatMessage[];
+  hypothesis: string;
+  domain?: string | null;
+  constraints?: string | null;
+  qc?: LiteratureQC | null;
+};
+
+export type ChatAboutLiteratureResponse = {
+  message: ChatMessage;
+  suggested_hypothesis?: string | null;
+  should_refresh_qc?: boolean;
+};

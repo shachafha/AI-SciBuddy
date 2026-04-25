@@ -12,6 +12,12 @@ The application is built with a modern, intentional stack designed for speed and
 *   **Backend**: FastAPI (Python), serving robust endpoints for plan generation and feedback management.
 *   **AI Models**: Uses local Ollama (Gemma 3) for deterministic, structured plan generation without relying on expensive cloud LLMs.
 
+## Agentic Skills & Integrations
+AI SciBuddy is supercharged with a suite of external agentic skills to handle UI/UX design, web scraping, and multi-agent orchestration seamlessly:
+*   **Web Scraping & Crawling**: Integrated with **Firecrawl CLI/Skill** and **Playwright Skill** for autonomous real-time web interaction and data extraction.
+*   **UI/UX Intelligence**: Enhanced by **UI/UX Pro Max** and **awesome-design-md** for pixel-perfect, design-system-aware frontend generation.
+*   **Token Efficiency & Orchestration**: Powered by **Code Review Graph (CRG)** for token-efficient local knowledge mapping, **Caveman** for concise token usage, and **Ruflo** / **Get Shit Done** for advanced multi-agent swarming and orchestration workflows.
+
 ## How Tavily is Used
 Tavily's search API is the backbone of AI SciBuddy's grounding mechanism. It is used to:
 1.  Search for prior literature to power the Novelty QC signal.

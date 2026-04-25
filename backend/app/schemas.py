@@ -162,3 +162,26 @@ class RegenerateRequest(StrictModel):
     hypothesis: str = Field(..., min_length=8)
     current_plan: ExperimentPlan
     feedback: ScientistFeedback
+
+
+ChatRole = Literal["user", "assistant", "system"]
+
+
+class ChatMessage(StrictModel):
+    role: ChatRole
+    content: str
+    created_at: str | None = None
+
+
+class ChatAboutLiteratureRequest(StrictModel):
+    messages: list[ChatMessage]
+    hypothesis: str
+    domain: str | None = None
+    constraints: str | None = None
+    qc: LiteratureQC | None = None
+
+
+class ChatAboutLiteratureResponse(StrictModel):
+    message: ChatMessage
+    suggested_hypothesis: str | None = None
+    should_refresh_qc: bool = False

@@ -25,4 +25,6 @@
 ### 5. Regeneration Effect & Conclusion (1:40 - 2:00)
 *   **Action:** The plan regenerates. Click the now-highlighted (amber pulsing dot) **Timeline** tab. Click the **Summary** or **Sources** tab to show the appended notes.
 *   **Speaker:** "The plan instantly regenerates. The Timeline tab is visually highlighted so we see exactly what changed. The timeline is extended, and it explicitly notes 'Updated based on expert feedback'."
-*   **Speaker:** "Most importantly, this feedback is saved to local memory. Next time someone plans a similar cell biology experiment, SciBuddy will automatically pull this in as an *Expert Lesson Learned*. AI SciBuddy turns expert corrections into reusable planning memory. Thank you!"
+*   **Speaker:** "Most importantly, this feedback is saved to local memory. Next time someone plans a similar cell biology experiment, SciBuddy will automatically pull this in as an *Expert Lesson Learned*."
+*   **Action:** Briefly reference the expanded agentic capabilities (if visible on an architecture slide or repo).
+*   **Speaker:** "And this is just the beginning. AI SciBuddy is supercharged with installed agentic tools like Firecrawl, Playwright, Code Review Graph, and UI/UX Pro Max, enabling it to autonomously scrape supplier sites, design intuitive interfaces, and orchestrate complex multi-agent workflows under the hood. AI SciBuddy turns expert corrections into reusable, executable memory. Thank you!"
