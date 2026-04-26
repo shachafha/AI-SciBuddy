@@ -23,7 +23,7 @@ import { LabViewCanvas } from "./lab-view-canvas";
 import { LiteratureQCPanel } from "./literature-qc-panel";
 
 type ExperimentPlanViewerMode = "experiment_plan" | "lab_view";
-type PlanContextSection = "protocol" | "literature" | "materials" | "budget" | "timeline" | "validation" | "risks" | "sources";
+export type PlanContextSection = "protocol" | "literature" | "materials" | "budget" | "timeline" | "validation" | "risks" | "sources";
 
 const planContextSections: { id: PlanContextSection; label: string }[] = [
   { id: "protocol", label: "Protocol" },
@@ -446,6 +446,9 @@ export function ExperimentPlanViewer({
   qc,
   mode = "experiment_plan",
   onRegenerate,
+  activePlanSection,
+  onActivePlanSectionChange,
+  onNodeSelect,
 }: {
   plan: ExperimentPlan | null;
   loading?: boolean;
@@ -453,8 +456,10 @@ export function ExperimentPlanViewer({
   qc?: LiteratureQC | null;
   mode?: ExperimentPlanViewerMode;
   onRegenerate?: (newPlan: ExperimentPlan) => void;
+  activePlanSection?: PlanContextSection;
+  onActivePlanSectionChange?: (section: PlanContextSection) => void;
+  onNodeSelect?: (node: any) => void; // Using any to avoid importing LabNode here if not needed, but LabNode is better. Let's import LabNode.
 }) {
-  const [activePlanSection, setActivePlanSection] = useState<PlanContextSection>("protocol");
 
   if (loading || !plan) {
     return null;
@@ -483,6 +488,7 @@ export function ExperimentPlanViewer({
             plan={plan}
             hypothesis={plan.hypothesis}
             onRegenerate={onRegenerate}
+            onNodeSelect={onNodeSelect}
           />
         </div>
       </Card>
@@ -495,16 +501,16 @@ export function ExperimentPlanViewer({
       <div className="bg-slate-50/50 p-5 xl:p-8">
         <div className="space-y-8">
           <PlanOverview plan={plan} />
-          <PlanContextNav activeSection={activePlanSection} onChange={setActivePlanSection} qc={qc} />
+          <PlanContextNav activeSection={activePlanSection || "protocol"} onChange={onActivePlanSectionChange || (() => {})} qc={qc} />
           <div className="rounded-xl border border-border/60 bg-white/40 p-4 shadow-sm">
-            {activePlanSection === "protocol" ? <ProtocolSection plan={plan} /> : null}
-            {activePlanSection === "literature" ? <LiteratureSection qc={qc} mock={mock} /> : null}
-            {activePlanSection === "materials" ? <MaterialsSection plan={plan} /> : null}
-            {activePlanSection === "budget" ? <BudgetSection plan={plan} totalCost={totalCost} /> : null}
-            {activePlanSection === "timeline" ? <TimelineSection plan={plan} /> : null}
-            {activePlanSection === "validation" ? <ValidationSection plan={plan} /> : null}
-            {activePlanSection === "risks" ? <RisksSection plan={plan} /> : null}
-            {activePlanSection === "sources" ? <SourcesSection plan={plan} /> : null}
+            {(activePlanSection || "protocol") === "protocol" ? <ProtocolSection plan={plan} /> : null}
+            {(activePlanSection || "protocol") === "literature" ? <LiteratureSection qc={qc} mock={mock} /> : null}
+            {(activePlanSection || "protocol") === "materials" ? <MaterialsSection plan={plan} /> : null}
+            {(activePlanSection || "protocol") === "budget" ? <BudgetSection plan={plan} totalCost={totalCost} /> : null}
+            {(activePlanSection || "protocol") === "timeline" ? <TimelineSection plan={plan} /> : null}
+            {(activePlanSection || "protocol") === "validation" ? <ValidationSection plan={plan} /> : null}
+            {(activePlanSection || "protocol") === "risks" ? <RisksSection plan={plan} /> : null}
+            {(activePlanSection || "protocol") === "sources" ? <SourcesSection plan={plan} /> : null}
           </div>
         </div>
       </div>

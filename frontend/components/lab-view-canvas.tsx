@@ -140,9 +140,10 @@ interface LabViewCanvasInnerProps {
   plan?: ExperimentPlan | null;
   hypothesis?: string;
   onRegenerate?: (newPlan: ExperimentPlan) => void;
+  onNodeSelect?: (node: LabNode | null) => void;
 }
 
-function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabViewCanvasInnerProps) {
+function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate, onNodeSelect }: LabViewCanvasInnerProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [learnMode, setLearnMode] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -273,6 +274,7 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
       setEdges(layoutedEdges);
       setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 50);
       setSelectedNodeId(null);
+      onNodeSelect?.(null);
     }
   };
 
@@ -295,6 +297,7 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
     };
     setNodes((nds) => [...nds, newNode]);
     setSelectedNodeId(id);
+    onNodeSelect?.(newNode.data as unknown as LabNode);
   };
 
   const updateSelectedNode = (updates: Partial<LabNode>) => {
@@ -319,6 +322,7 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
       setNodes(nds => nds.filter(n => n.id !== selectedNodeId));
       setEdges(eds => eds.filter(e => e.source !== selectedNodeId && e.target !== selectedNodeId));
       setSelectedNodeId(null);
+      onNodeSelect?.(null);
     }
   };
 
@@ -455,7 +459,10 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
                     return (
                       <button
                         key={n.id}
-                        onClick={() => setSelectedNodeId(n.id)}
+                        onClick={() => {
+                          setSelectedNodeId(n.id);
+                          onNodeSelect?.(labNodeFromGraphNode(n));
+                        }}
                         className={cn(
                           "w-full text-left px-2 py-1.5 text-xs rounded transition-colors border",
                           selectedNodeId === n.id
@@ -488,8 +495,14 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
             onEdgesChange={onEdgesChange}
             onConnect={editMode ? onConnect : undefined}
             nodeTypes={nodeTypes}
-            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-            onPaneClick={() => setSelectedNodeId(null)}
+            onNodeClick={(_, node) => {
+              setSelectedNodeId(node.id);
+              onNodeSelect?.(labNodeFromGraphNode(node));
+            }}
+            onPaneClick={() => {
+              setSelectedNodeId(null);
+              onNodeSelect?.(null);
+            }}
             nodesDraggable={editMode}
             nodesConnectable={editMode}
             elementsSelectable={true}
@@ -509,7 +522,10 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
           <div className="px-4 py-3 border-b border-border/40 bg-slate-50/50">
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-between">
               {learnMode ? "Learn: Conceptual Overview" : "Inspector"}
-              <button onClick={() => setSelectedNodeId(null)} className="hover:text-slate-800 bg-slate-200/50 rounded-full p-0.5">
+              <button onClick={() => {
+                setSelectedNodeId(null);
+                onNodeSelect?.(null);
+              }} className="hover:text-slate-800 bg-slate-200/50 rounded-full p-0.5">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -805,6 +821,7 @@ export interface LabViewCanvasProps {
   hypothesis?: string;
   loading?: boolean;
   onRegenerate?: (newPlan: ExperimentPlan) => void;
+  onNodeSelect?: (node: LabNode | null) => void;
 }
 
 // Skeleton shimmer for loading state
@@ -887,7 +904,7 @@ function LabViewEmptyState() {
   );
 }
 
-export function LabViewCanvas({ workflow, plan, hypothesis, loading, onRegenerate }: LabViewCanvasProps) {
+export function LabViewCanvas({ workflow, plan, hypothesis, loading, onRegenerate, onNodeSelect }: LabViewCanvasProps) {
   if (loading) return <LabViewSkeleton />;
 
   if (!workflow || !workflow.nodes || workflow.nodes.length === 0) {
@@ -901,6 +918,7 @@ export function LabViewCanvas({ workflow, plan, hypothesis, loading, onRegenerat
         plan={plan}
         hypothesis={hypothesis}
         onRegenerate={onRegenerate}
+        onNodeSelect={onNodeSelect}
       />
     </ReactFlowProvider>
   );
