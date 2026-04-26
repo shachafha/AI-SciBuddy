@@ -10,6 +10,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 DEFAULT_EXECUTION_STORE_PATH = "/Shared/AI-SciBuddy/execution_plans.json"
+DEFAULT_FEEDBACK_STORE_PATH = "/Shared/AI-SciBuddy/feedback.json"
 
 
 class DatabricksWorkspaceStoreError(RuntimeError):
@@ -57,12 +58,12 @@ def _mkdirs(path: str) -> None:
     response.raise_for_status()
 
 
-def read_json(default: Any) -> Any:
-    path = execution_store_path()
+def read_json(default: Any, path: str | None = None) -> Any:
+    store_path = path or execution_store_path()
     response = httpx.get(
         _api_url("/api/2.0/workspace/export"),
         headers=_headers(),
-        params={"path": path, "format": "AUTO"},
+        params={"path": store_path, "format": "AUTO"},
         timeout=30,
     )
     if response.status_code == 404 or "RESOURCE_DOES_NOT_EXIST" in response.text:
@@ -76,15 +77,15 @@ def read_json(default: Any) -> Any:
     return json.loads(raw_content)
 
 
-def write_json(payload: Any) -> None:
-    path = execution_store_path()
-    _mkdirs(path)
+def write_json(payload: Any, path: str | None = None) -> None:
+    store_path = path or execution_store_path()
+    _mkdirs(store_path)
     content = json.dumps(payload, indent=2)
     response = httpx.post(
         _api_url("/api/2.0/workspace/import"),
         headers={**_headers(), "Content-Type": "application/json"},
         json={
-            "path": path,
+            "path": store_path,
             "format": "AUTO",
             "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
             "overwrite": True,

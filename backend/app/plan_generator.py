@@ -508,7 +508,7 @@ List the section name(s) that were modified in updated_sections.
             last_request = user_msgs[-1].content if user_msgs else "Chat revision"
 
             add_feedback(ScientistFeedback(
-                plan_id="chat_revision",
+                plan_id=plan.plan_id,
                 section=", ".join(plan.updated_sections) if plan.updated_sections else "General",
                 rating=5,
                 correction=f"Agent Chat Revision Applied:\n{last_request}",

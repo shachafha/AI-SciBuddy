@@ -1,4 +1,5 @@
 from typing import Any, Generic, Literal, TypeVar
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -193,6 +194,7 @@ class LabView(StrictModel):
 class ExperimentPlan(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    plan_id: str = Field(default_factory=lambda: str(uuid4()))
     title: str
     hypothesis: str
     executive_summary: GroundedSection[str]

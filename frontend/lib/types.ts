@@ -153,6 +153,7 @@ export type GroundedSection<T> = {
 };
 
 export type ExperimentPlan = {
+  plan_id?: string;
   title: string;
   hypothesis: string;
   executive_summary: GroundedSection<string>;
