@@ -2,6 +2,7 @@
 
 import { CSSProperties, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Badge, Card, Button, SecondaryButton } from "@/components/ui";
 import { ChatComposer } from "@/components/chat-composer";
 import { ChatMessageList } from "@/components/chat-message-list";
@@ -56,8 +57,8 @@ function TopAppNav({
     <div className="sticky top-4 z-40 mb-8 rounded-2xl border border-border/60 bg-white/90 p-2 shadow-soft backdrop-blur-xl">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 items-center gap-3 px-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary shadow-sm">
-            <FlaskConical className="h-5 w-5" />
+          <div className="relative h-[44px] w-[44px] shrink-0 sm:h-[52px] sm:w-[52px]">
+            <Image src="/logo.png" alt="AI SciBuddy teddy bear scientist logo" fill className="object-contain" priority />
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-black tracking-tight text-slate-900">AI SciBuddy</div>
@@ -335,7 +336,16 @@ export default function Home() {
         ) : null}
 
         <div className={`flex flex-col items-center justify-center transition-all duration-700 ${hasStarted ? "pb-4 pt-8" : "min-h-[80vh] py-12"}`}>
-          <h1 className="mb-4 text-4xl font-black tracking-tight text-slate-900 sm:text-6xl">AI SciBuddy</h1>
+          <div className="flex flex-col items-center gap-0 mb-4">
+            {!hasStarted && (
+              <div className="relative h-[115px] w-[115px] sm:h-[155px] sm:w-[155px] lg:h-[195px] lg:w-[195px] drop-shadow-[0_0_20px_rgba(20,150,180,0.15)] z-10">
+                <Image src="/logo.png" alt="AI SciBuddy teddy bear scientist logo" fill className="object-contain" priority />
+              </div>
+            )}
+            <h1 className={`${!hasStarted ? "-mt-2 sm:-mt-6 lg:-mt-8" : ""} text-4xl font-black tracking-tight text-slate-900 sm:text-6xl relative z-20`}>
+              AI SciBuddy
+            </h1>
+          </div>
           {!hasStarted ? (
             <>
               <p className="mb-8 max-w-2xl px-4 text-center text-lg leading-relaxed text-slate-600">
