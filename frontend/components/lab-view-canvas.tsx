@@ -14,14 +14,13 @@ import {
   Position,
   useReactFlow,
   ReactFlowProvider,
-  Panel,
   Connection,
   addEdge
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { ExperimentPlan, LabView, LabNode } from "@/lib/types";
 import { Button, Badge } from "@/components/ui";
-import { Info, Flag, Layout, BookOpen, ExternalLink, Pencil, Plus, RotateCcw, Trash2, AlertTriangle, RefreshCw, X } from "lucide-react";
+import { Info, Flag, Layout, BookOpen, ExternalLink, Pencil, Plus, RotateCcw, Trash2, AlertTriangle, RefreshCw, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { regenerateFromLabView } from "@/lib/api";
 
@@ -100,6 +99,40 @@ const nodeTypes = {
   labNode: LabCustomNode,
 };
 
+type GraphNavigatorFilter = "all" | "process" | "materials" | "assays" | "validation" | "risks" | "evidence";
+
+const graphNavigatorFilters: { id: GraphNavigatorFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "process", label: "Process" },
+  { id: "materials", label: "Materials" },
+  { id: "assays", label: "Assays" },
+  { id: "validation", label: "Validation" },
+  { id: "risks", label: "Risks" },
+  { id: "evidence", label: "Evidence" },
+];
+
+const graphGroupLabels: Record<string, string> = {
+  process: "Process",
+  material: "Materials",
+  assay: "Assays",
+  validation: "Validation",
+};
+
+function labNodeFromGraphNode(node: Node): LabNode {
+  return node.data as unknown as LabNode;
+}
+
+function matchesNavigatorFilter(node: LabNode, filter: GraphNavigatorFilter) {
+  if (filter === "all") return true;
+  if (filter === "process") return node.node_type === "process";
+  if (filter === "materials") return node.node_type === "material";
+  if (filter === "assays") return node.node_type === "assay";
+  if (filter === "validation") return node.node_type === "validation";
+  if (filter === "risks") return node.state.status === "flagged" || node.metadata.confidence < 0.7 || node.learn_content?.risks?.length;
+  if (filter === "evidence") return node.metadata.supporting_sources.length > 0;
+  return true;
+}
+
 // --- Main Canvas Component ---
 interface LabViewCanvasInnerProps {
   workflow: LabView;
@@ -117,6 +150,8 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
   const [regenBanner, setRegenBanner] = useState<string | null>(null);
+  const [navigatorOpen, setNavigatorOpen] = useState(true);
+  const [navigatorFilter, setNavigatorFilter] = useState<GraphNavigatorFilter>("all");
   const { fitView, getNodes, getEdges } = useReactFlow();
 
   // Build current LabView from canvas state
@@ -170,6 +205,23 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
   const editCount = useMemo(() => {
     return nodes.filter(n => (n.data as unknown as LabNode).state?.version > 1).length;
   }, [nodes]);
+
+  const navigatorGroups = useMemo(() => {
+    const groups = new Map<string, Node[]>();
+    for (const node of nodes) {
+      const labNode = labNodeFromGraphNode(node);
+      if (!matchesNavigatorFilter(labNode, navigatorFilter)) continue;
+
+      const groupKey = navigatorFilter === "risks" || navigatorFilter === "evidence"
+        ? navigatorFilter
+        : labNode.node_type;
+      const current = groups.get(groupKey) ?? [];
+      current.push(node);
+      groups.set(groupKey, current);
+    }
+
+    return Array.from(groups.entries());
+  }, [navigatorFilter, nodes]);
 
 
   // Initialize from props
@@ -252,124 +304,192 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
   const selectedNodeData = selectedNode?.data as (LabNode & { showDescription: boolean }) | undefined;
 
   return (
-    <div className="relative h-[700px] w-full border border-border/60 rounded-xl overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100/50 flex shadow-inner">
-      
-      {/* Left Sidebar: Node Navigator */}
-      <div className="w-64 h-full border-r border-border/60 bg-white/80 backdrop-blur-sm flex flex-col z-10 shrink-0 shadow-sm hidden md:flex">
-        <div className="p-4 border-b border-border/40">
-          <h3 className="font-bold text-sm uppercase tracking-wider text-slate-800">Graph Navigator</h3>
+    <div className="relative flex h-[780px] w-full flex-col overflow-hidden rounded-xl border border-border/60 bg-gradient-to-br from-slate-50 to-slate-100/50 shadow-inner">
+      {/* Lab View toolbar */}
+      <div className="z-20 flex flex-col gap-2 border-b border-border/40 bg-white/95 px-4 py-2 backdrop-blur-sm xl:flex-row xl:items-center xl:justify-between shadow-sm">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            onClick={() => setNavigatorOpen((open) => !open)}
+            title="Toggle Navigator"
+            className="h-8 w-8 p-0 bg-transparent text-slate-500 shadow-none hover:bg-slate-100 hover:text-slate-800 border-0"
+          >
+            {navigatorOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+          </Button>
+          <div className="w-px h-4 bg-slate-200 mx-1" />
+          <Button
+            onClick={() => setEditMode(!editMode)}
+            className={cn(
+              "h-8 px-2.5 text-xs font-semibold shadow-none transition-colors",
+              editMode ? "bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300" : "bg-transparent text-slate-600 hover:bg-slate-100 border border-transparent"
+            )}
+          >
+            <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Mode
+          </Button>
+          <Button
+            onClick={() => setLearnMode(!learnMode)}
+            className={cn(
+              "h-8 px-2.5 text-xs font-semibold shadow-none transition-colors",
+              learnMode ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-transparent text-slate-600 hover:bg-slate-100 border border-transparent"
+            )}
+          >
+            <BookOpen className="w-3.5 h-3.5 mr-1.5" /> Learn Mode
+          </Button>
+          <div className="w-px h-4 bg-slate-200 mx-1" />
+          <Button onClick={() => fitView({ duration: 800 })} className="h-8 px-2.5 text-xs font-medium bg-transparent text-slate-600 hover:bg-slate-100 border border-transparent shadow-none">
+            Fit View
+          </Button>
+          <Button onClick={onLayout} className="h-8 px-2.5 text-xs font-medium bg-transparent text-slate-600 hover:bg-slate-100 border border-transparent shadow-none">
+            <Layout className="w-3.5 h-3.5 mr-1.5" /> Auto Layout
+          </Button>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {nodes.map(n => (
-            <button 
-              key={n.id}
-              onClick={() => setSelectedNodeId(n.id)}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 mr-2">
+            <Badge className="bg-slate-100 text-slate-500 border-transparent font-mono uppercase text-[9px] px-1.5 py-0">
+              {nodes.length} Nodes
+            </Badge>
+            {editCount > 0 ? <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-mono uppercase text-[9px] px-1.5 py-0">{editCount} Edited</Badge> : null}
+          </div>
+          {editMode && (
+            <>
+              <Button onClick={addNode} className="h-8 px-2.5 text-xs font-medium bg-transparent text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-none">
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Node
+              </Button>
+              <Button onClick={resetToGenerated} className="h-8 px-2.5 text-xs font-medium bg-transparent text-rose-600 hover:bg-rose-50 border border-rose-200 shadow-none">
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Reset
+              </Button>
+            </>
+          )}
+          {onRegenerate && plan && (
+            <Button
+              onClick={() => { setRegenError(null); setRegenModal(true); }}
+              disabled={editCount === 0}
               className={cn(
-                "w-full text-left px-3 py-2 text-sm rounded-md transition-colors border",
-                selectedNodeId === n.id 
-                  ? "bg-primary/10 border-primary/20 text-primary font-bold shadow-sm" 
-                  : "bg-transparent border-transparent hover:bg-slate-100 text-slate-700"
+                "h-8 px-3 text-xs font-bold shadow-none relative",
+                editCount > 0
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "bg-transparent text-slate-400 border border-border/60 cursor-not-allowed"
               )}
             >
-              <div className="truncate">{n.data.label as string}</div>
-              <div className="text-[10px] text-slate-500 font-mono mt-0.5 uppercase">{n.data.node_type as string}</div>
-            </button>
-          ))}
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Regenerate Plan
+              {editCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-black text-white">
+                  {editCount}
+                </span>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Main Canvas */}
-      <div className="flex-1 h-full relative">
-        <ReactFlow 
-          nodes={nodes} 
-          edges={edges} 
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={editMode ? onConnect : undefined}
-          nodeTypes={nodeTypes}
-          onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-          onPaneClick={() => setSelectedNodeId(null)}
-          nodesDraggable={editMode}
-          nodesConnectable={editMode}
-          elementsSelectable={true}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.2}
-          maxZoom={2}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Collapsible navigator */}
+        <div
+          className={cn(
+            "z-10 flex shrink-0 flex-col border-b border-border/40 bg-slate-50/80 backdrop-blur-md lg:border-b-0 lg:border-r transition-all duration-300",
+            navigatorOpen ? "h-56 lg:h-full w-full lg:w-64" : "hidden"
+          )}
         >
-          <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#cbd5e1" />
-          <Controls className="bg-white border-border/40 shadow-sm" />
-          
-          <Panel position="top-right" className="bg-white/90 backdrop-blur border border-border/40 shadow-sm rounded-lg p-1.5 flex gap-1">
-            <Button 
-              onClick={() => setEditMode(!editMode)} 
-              className={cn("h-8 px-3 text-xs font-medium shadow-none transition-colors", editMode ? "bg-amber-100 text-amber-900 hover:bg-amber-200 border-amber-300" : "bg-transparent text-slate-700 hover:bg-slate-100 border border-transparent")}
-            >
-              <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Mode
-            </Button>
-            
-            {editMode && (
-              <>
-                <div className="w-px bg-border/60 mx-1 my-1"></div>
-                <Button onClick={addNode} className="h-8 px-3 text-xs font-medium bg-transparent text-slate-700 hover:bg-slate-100 border border-transparent shadow-none">
-                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Node
-                </Button>
-                <Button onClick={resetToGenerated} className="h-8 px-3 text-xs font-medium bg-transparent text-rose-600 hover:bg-rose-50 border border-transparent shadow-none">
-                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Reset
-                </Button>
-                <div className="w-px bg-border/60 mx-1 my-1"></div>
-              </>
-            )}
-
-            <Button onClick={() => fitView({ duration: 800 })} className="h-8 px-3 text-xs font-medium bg-transparent text-slate-700 hover:bg-slate-100 border border-transparent shadow-none">
-              Fit View
-            </Button>
-            {!editMode && (
-              <Button onClick={onLayout} className="h-8 px-3 text-xs font-medium bg-transparent text-slate-700 hover:bg-slate-100 border border-transparent shadow-none">
-                <Layout className="w-3.5 h-3.5 mr-1.5" /> Layout
-              </Button>
-            )}
-            <Button 
-              onClick={() => setLearnMode(!learnMode)} 
-              className={cn("h-8 px-3 text-xs font-medium shadow-none", learnMode ? "bg-primary text-primary-foreground" : "bg-transparent text-slate-700 hover:bg-slate-100 border border-transparent")}
-            >
-              <BookOpen className="w-3.5 h-3.5 mr-1.5" /> Learn
-            </Button>
-
-            {/* Regenerate button — only shown when plan + onRegenerate provided */}
-            {onRegenerate && plan && (
-              <>
-                <div className="w-px bg-border/60 mx-1 my-1"></div>
-                <Button
-                  onClick={() => { setRegenError(null); setRegenModal(true); }}
-                  disabled={editCount === 0}
+          <div className="flex items-center justify-between p-3 border-b border-border/40">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">Navigator</h3>
+            <button onClick={() => setNavigatorOpen(false)} className="text-slate-400 hover:text-slate-800">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="p-3 border-b border-border/40 bg-white/50">
+            <div className="flex flex-wrap gap-1">
+              {graphNavigatorFilters.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setNavigatorFilter(filter.id)}
                   className={cn(
-                    "h-8 px-3 text-xs font-medium shadow-none relative",
-                    editCount > 0
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "bg-transparent text-slate-400 border border-transparent cursor-not-allowed"
+                    "rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                    navigatorFilter === filter.id
+                      ? "bg-slate-800 text-white shadow-sm"
+                      : "bg-transparent text-slate-500 hover:bg-slate-200"
                   )}
                 >
-                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Regenerate Plan
-                  {editCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-black text-white">
-                      {editCount}
-                    </span>
-                  )}
-                </Button>
-              </>
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {navigatorGroups.length === 0 ? (
+              <div className="p-3 text-xs text-slate-400 italic text-center">
+                No nodes match filter.
+              </div>
+            ) : (
+              navigatorGroups.map(([group, groupNodes]) => (
+                <div key={group} className="pt-2">
+                  <div className="px-2 pb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    {group === "risks" ? "Risks" : group === "evidence" ? "Evidence" : graphGroupLabels[group] ?? group}
+                  </div>
+                  {groupNodes.map(n => {
+                    const node = labNodeFromGraphNode(n);
+                    const isRisk = node.state.status === "flagged" || node.metadata.confidence < 0.7;
+                    const hasEvidence = node.metadata.supporting_sources.length > 0;
+                    return (
+                      <button
+                        key={n.id}
+                        onClick={() => setSelectedNodeId(n.id)}
+                        className={cn(
+                          "w-full text-left px-2 py-1.5 text-xs rounded transition-colors border",
+                          selectedNodeId === n.id
+                            ? "bg-white border-slate-200 shadow-sm font-semibold text-slate-800"
+                            : "bg-transparent border-transparent hover:bg-slate-200/50 text-slate-600"
+                        )}
+                      >
+                        <div className="truncate">{n.data.label as string}</div>
+                        {(isRisk || hasEvidence) && (
+                          <div className="mt-0.5 flex flex-wrap gap-1">
+                            {isRisk && <span className="text-[8px] font-mono uppercase text-amber-600">Risk</span>}
+                            {hasEvidence && <span className="text-[8px] font-mono uppercase text-primary">Src</span>}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))
             )}
-          </Panel>
-        </ReactFlow>
-      </div>
+          </div>
+        </div>
+
+        {/* Main Canvas */}
+        <div className="relative h-[560px] min-w-0 flex-1 lg:h-full">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={editMode ? onConnect : undefined}
+            nodeTypes={nodeTypes}
+            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+            onPaneClick={() => setSelectedNodeId(null)}
+            nodesDraggable={editMode}
+            nodesConnectable={editMode}
+            elementsSelectable={true}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            minZoom={0.2}
+            maxZoom={2}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#cbd5e1" />
+            <Controls className="bg-white border-border/40 shadow-sm" />
+          </ReactFlow>
+        </div>
 
       {/* Right Sidebar: Inspector */}
       {selectedNodeData && (
-        <div className="w-80 h-full border-l border-border/60 bg-white shadow-2xl flex flex-col z-10 shrink-0">
-          <div className="p-5 border-b border-border/40 bg-gradient-to-r from-slate-50 to-white">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center justify-between">
-              {learnMode ? "Learn: Conceptual Overview" : "Node Inspector"}
-              <button onClick={() => setSelectedNodeId(null)} className="hover:text-slate-800">×</button>
+        <div className="z-10 flex h-80 w-full shrink-0 flex-col border-t border-border/40 bg-white shadow-xl lg:h-full lg:w-80 lg:border-l lg:border-t-0">
+          <div className="px-4 py-3 border-b border-border/40 bg-slate-50/50">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-between">
+              {learnMode ? "Learn: Conceptual Overview" : "Inspector"}
+              <button onClick={() => setSelectedNodeId(null)} className="hover:text-slate-800 bg-slate-200/50 rounded-full p-0.5">
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
             {editMode && !learnMode ? (
               <input 
@@ -555,6 +675,7 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
           )}
         </div>
       )}
+      </div>
 
       {/* Regen success banner */}
       {regenBanner && (
@@ -762,4 +883,3 @@ export function LabViewCanvas({ workflow, plan, hypothesis, loading, onRegenerat
     </ReactFlowProvider>
   );
 }
-

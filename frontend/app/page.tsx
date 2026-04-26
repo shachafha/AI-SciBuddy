@@ -1,10 +1,9 @@
 "use client";
 
 import { CSSProperties, useState } from "react";
-import { Card, SecondaryButton, Button } from "@/components/ui";
+import { Badge, Card, Button } from "@/components/ui";
 import { ExperimentPlanViewer } from "@/components/experiment-plan-viewer";
 import { ScientistReviewPanel } from "@/components/scientist-review-panel";
-import { ScientificLoader } from "@/components/scientific-loader";
 import { ChatMessageList } from "@/components/chat-message-list";
 import { ChatComposer } from "@/components/chat-composer";
 import { HypothesisSummaryCard } from "@/components/hypothesis-summary-card";
@@ -12,7 +11,113 @@ import { RelatedWorkSection } from "@/components/related-work-section";
 import { chatAboutLiterature, generatePlan, runLiteratureQC } from "@/lib/api";
 import { demoExperimentPlan, demoLiteratureQC } from "@/lib/demo-data";
 import type { ChatMessage, ExperimentPlan, LiteratureQC } from "@/lib/types";
-import { FlaskConical, ArrowLeft, ArrowRight, CheckCircle2, SendHorizontal } from "lucide-react";
+import { CheckCircle2, ClipboardList, FlaskConical, Loader2, MessageSquareText, Network, Radar, SendHorizontal } from "lucide-react";
+
+type AppDestination = "overview" | "literature_qc" | "experiment_plan" | "lab_view" | "expert_review";
+
+const appNavItems: { id: AppDestination; label: string; requires: "none" | "qc" | "plan" }[] = [
+  { id: "overview", label: "Overview", requires: "none" },
+  { id: "literature_qc", label: "Literature QC", requires: "qc" },
+  { id: "experiment_plan", label: "Experiment Plan", requires: "plan" },
+  { id: "lab_view", label: "Lab View", requires: "plan" },
+  { id: "expert_review", label: "Expert Review", requires: "plan" },
+];
+
+function navIcon(destination: AppDestination) {
+  if (destination === "literature_qc") return Radar;
+  if (destination === "experiment_plan") return ClipboardList;
+  if (destination === "lab_view") return Network;
+  if (destination === "expert_review") return MessageSquareText;
+  return FlaskConical;
+}
+
+function TopAppNav({
+  activeDestination,
+  onChange,
+  hasQc,
+  hasPlan,
+  demoMode,
+  busy,
+  onGeneratePlan,
+}: {
+  activeDestination: AppDestination;
+  onChange: (destination: AppDestination) => void;
+  hasQc: boolean;
+  hasPlan: boolean;
+  demoMode: boolean;
+  busy: "qc" | "chat" | "plan" | "both" | null;
+  onGeneratePlan: () => void;
+}) {
+  const generatingPlan = busy === "plan";
+  const statusLabel = busy === "qc" ? "QC running" : busy === "chat" ? "Chat active" : busy === "plan" ? "Planning" : "Ready";
+
+  return (
+    <div className="sticky top-4 z-40 mb-8 rounded-2xl border border-border/60 bg-white/90 p-2 shadow-soft backdrop-blur-xl">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 items-center gap-3 px-2">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary shadow-sm">
+            <FlaskConical className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-black tracking-tight text-slate-900">AI SciBuddy</div>
+            <div className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Scientific planning workspace</div>
+          </div>
+        </div>
+
+        <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-xl border border-border/40 bg-slate-50/70 p-1" aria-label="AI SciBuddy navigation">
+          {appNavItems.map((item) => {
+            const isEnabled = item.requires === "none" || (item.requires === "qc" && hasQc) || (item.requires === "plan" && hasPlan);
+            const isActive = activeDestination === item.id;
+            const Icon = navIcon(item.id);
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  if (isEnabled) onChange(item.id);
+                }}
+                disabled={!isEnabled}
+                aria-current={isActive ? "page" : undefined}
+                className={[
+                  "flex shrink-0 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all sm:px-4",
+                  isActive
+                    ? "bg-white text-primary shadow-sm ring-1 ring-border/60"
+                    : isEnabled
+                    ? "text-slate-600 hover:bg-white/70 hover:text-slate-900"
+                    : "cursor-not-allowed text-slate-300",
+                ].join(" ")}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2 px-2">
+          <Badge className="border-slate-200 bg-slate-50 text-slate-700 font-mono">
+            {busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3 text-emerald-600" />}
+            {statusLabel}
+          </Badge>
+          {hasQc ? <Badge className="border-emerald-200 bg-emerald-50 text-emerald-900 font-mono">QC_READY</Badge> : null}
+          {hasPlan ? <Badge className="border-primary/20 bg-primary/10 text-primary font-mono">PLAN_READY</Badge> : null}
+          {demoMode ? <Badge className="border-amber-200 bg-amber-50 text-amber-900 font-mono">DEMO</Badge> : null}
+          {hasQc && !hasPlan ? (
+            <Button
+              onClick={onGeneratePlan}
+              disabled={generatingPlan}
+              className="h-8 rounded-lg bg-primary px-3 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-primary/90"
+            >
+              {generatingPlan ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <ClipboardList className="mr-1.5 h-3.5 w-3.5" />}
+              Generate Plan
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function LabBackground({ mouse }: { mouse: { x: number; y: number } }) {
   const style = {
@@ -40,7 +145,7 @@ export default function Home() {
   const [refreshQcPending, setRefreshQcPending] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [busy, setBusy] = useState<"qc" | "chat" | "plan" | "both" | null>(null);
-  const [viewMode, setViewMode] = useState<"chat" | "plan">("chat");
+  const [activeDestination, setActiveDestination] = useState<AppDestination>("overview");
 
   const input = { hypothesis, domain: domain || undefined, constraints: constraints || undefined };
   const isBusy = busy !== null;
@@ -52,11 +157,13 @@ export default function Home() {
       const response = await runLiteratureQC({ hypothesis: hyp, domain: domain || undefined, constraints: constraints || undefined });
       setQc(response);
       setDemoMode(false);
+      setActiveDestination("literature_qc");
       return response;
     } catch {
       const fallback = demoLiteratureQC(hyp);
       setQc(fallback);
       setDemoMode(true);
+      setActiveDestination("literature_qc");
       return fallback;
     } finally {
       setBusy(null);
@@ -132,6 +239,7 @@ export default function Home() {
     setSuggestedHypothesis(null);
     setRefreshQcPending(false);
     setPlan(null); // Clear the stale plan
+    setActiveDestination("literature_qc");
 
     setChatMessages((prev) => [
       ...prev,
@@ -143,6 +251,7 @@ export default function Home() {
       const response = await runLiteratureQC({ hypothesis: newHyp, domain: domain || undefined, constraints: constraints || undefined });
       setQc(response);
       setDemoMode(false);
+      setActiveDestination("literature_qc");
       
       let signalText = "I found some similar work.";
       if (response.novelty_signal === "not_found") signalText = "I didn't find any exact matches for this.";
@@ -167,11 +276,11 @@ export default function Home() {
     try {
       const response = await generatePlan(input, qc);
       setPlan(response);
-      setViewMode("plan");
+      setActiveDestination("experiment_plan");
       setDemoMode(false);
     } catch {
       setPlan(demoExperimentPlan(hypothesis, qc));
-      setViewMode("plan");
+      setActiveDestination("experiment_plan");
       setDemoMode(true);
     } finally {
       setBusy(null);
@@ -261,102 +370,120 @@ export default function Home() {
         {/* BELOW THE FOLD */}
         {hasStarted && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-            {/* PLAN PHASE */}
-            {viewMode === "plan" && plan ? (
-          <div className="flex flex-col gap-6">
-            <div className="flex justify-start">
-              <SecondaryButton onClick={() => setViewMode("chat")} className="shadow-sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to research chat
-              </SecondaryButton>
-            </div>
-            <div className="grid gap-6 lg:grid-cols-[1fr]">
-              <ExperimentPlanViewer
-                plan={plan}
-                loading={false}
-                mock={demoMode || plan?.confidence_notes.content.toLowerCase().includes("demo")}
-                qc={qc}
-              />
-              <ScientistReviewPanel
-                hypothesis={hypothesis}
-                plan={plan}
-                onPlanUpdated={(updated) => {
-                  setPlan(updated);
-                  setDemoMode(updated.confidence_notes.content.toLowerCase().includes("demo"));
-                }}
-              />
-            </div>
-          </div>
-        ) : (
-          /* RESEARCH PHASE (CHAT) */
-          <div className="mx-auto max-w-4xl flex flex-col gap-6 pb-24">
-            {plan && (
-              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2">
-                <div className="flex items-center gap-2 text-emerald-900 text-sm font-medium">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  You have an active experiment plan for the current hypothesis.
-                </div>
-                <Button onClick={() => setViewMode("plan")} className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 text-sm shadow-sm">
-                  View Plan
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            )}
-            
-            <div className="text-center mb-4">
-              <p className="text-lg text-muted-foreground leading-relaxed">
-                Chat with AI-SciBuddy about your hypothesis, inspect related work, then generate a grounded experiment plan.
-              </p>
-            </div>
-
-            <HypothesisSummaryCard
-              hypothesis={hypothesis}
-              domain={domain}
-              constraints={constraints}
-              parsedHypothesis={qc?.parsed_hypothesis}
-              suggestedHypothesis={suggestedHypothesis}
+            <TopAppNav
+              activeDestination={activeDestination}
+              onChange={setActiveDestination}
+              hasQc={!!qc}
               hasPlan={!!plan}
-              onApplySuggested={applySuggestedHypothesis}
-              onDismissSuggested={dismissSuggestedHypothesis}
+              demoMode={demoMode}
+              busy={busy}
+              onGeneratePlan={runPlanOnly}
             />
 
-            <Card className="p-4 bg-white/70 shadow-soft border-border/60">
-              <ChatMessageList 
-                messages={chatMessages} 
-                isTyping={busy === "chat"} 
-                onPromptSelect={(prompt) => handleSendMessage(prompt)} 
-              />
-              <ChatComposer
-                onSend={handleSendMessage}
-                disabled={busy === "chat" || busy === "qc" || busy === "plan"}
-                placeholder={hypothesis ? "Ask a follow up or tell me to refine the hypothesis..." : "Enter your scientific hypothesis here..."}
-              />
-            </Card>
+            {activeDestination === "overview" && (
+              <div className="mx-auto max-w-4xl flex flex-col gap-6 pb-24">
+                {plan && (
+                  <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 text-emerald-900 text-sm font-medium">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      You have an active experiment plan for the current hypothesis.
+                    </div>
+                    <Button
+                      onClick={() => setActiveDestination("experiment_plan")}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 text-sm shadow-sm"
+                    >
+                      View Plan
+                      <ClipboardList className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                )}
 
-            {plan && (
-              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2">
-                <div className="flex items-center gap-2 text-emerald-900 text-sm font-medium">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  You have an active experiment plan for the current hypothesis.
+                <div className="text-center mb-4">
+                  <p className="text-lg text-muted-foreground leading-relaxed">
+                    Chat with AI-SciBuddy about your hypothesis, inspect related work, then generate a grounded experiment plan.
+                  </p>
                 </div>
-                <Button onClick={() => setViewMode("plan")} className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 text-sm shadow-sm">
-                  View Plan
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
+
+                <HypothesisSummaryCard
+                  hypothesis={hypothesis}
+                  domain={domain}
+                  constraints={constraints}
+                  parsedHypothesis={qc?.parsed_hypothesis}
+                  suggestedHypothesis={suggestedHypothesis}
+                  hasPlan={!!plan}
+                  onApplySuggested={applySuggestedHypothesis}
+                  onDismissSuggested={dismissSuggestedHypothesis}
+                />
+
+                <Card className="p-4 bg-white/70 shadow-soft border-border/60">
+                  <ChatMessageList
+                    messages={chatMessages}
+                    isTyping={busy === "chat"}
+                    onPromptSelect={(prompt) => handleSendMessage(prompt)}
+                  />
+                  <ChatComposer
+                    onSend={handleSendMessage}
+                    disabled={busy === "chat" || busy === "qc" || busy === "plan"}
+                    placeholder={hypothesis ? "Ask a follow up or tell me to refine the hypothesis..." : "Enter your scientific hypothesis here..."}
+                  />
+                </Card>
               </div>
             )}
 
-            <RelatedWorkSection
-              qc={qc}
-              loadingQC={busy === "qc"}
-              demo={demoMode}
-              onGeneratePlan={runPlanOnly}
-              generatingPlan={busy === "plan"}
-            />
+            {activeDestination === "literature_qc" && (
+              <div className="mx-auto max-w-5xl pb-24">
+                <RelatedWorkSection
+                  qc={qc}
+                  loadingQC={busy === "qc"}
+                  demo={demoMode}
+                  onGeneratePlan={runPlanOnly}
+                  generatingPlan={busy === "plan"}
+                />
+              </div>
+            )}
+
+            {activeDestination === "experiment_plan" && plan && (
+              <div className="pb-24">
+                <ExperimentPlanViewer
+                  plan={plan}
+                  loading={false}
+                  mock={demoMode || plan.confidence_notes.content.toLowerCase().includes("demo")}
+                  qc={qc}
+                  mode="experiment_plan"
+                />
+              </div>
+            )}
+
+            {activeDestination === "lab_view" && plan && (
+              <div className="pb-24">
+                <ExperimentPlanViewer
+                  plan={plan}
+                  loading={false}
+                  mock={demoMode || plan.confidence_notes.content.toLowerCase().includes("demo")}
+                  qc={qc}
+                  mode="lab_view"
+                  onRegenerate={(updated) => {
+                    setPlan(updated);
+                    setDemoMode(updated.confidence_notes.content.toLowerCase().includes("demo"));
+                  }}
+                />
+              </div>
+            )}
+
+            {activeDestination === "expert_review" && plan && (
+              <div className="mx-auto max-w-5xl pb-24">
+                <ScientistReviewPanel
+                  hypothesis={hypothesis}
+                  plan={plan}
+                  onPlanUpdated={(updated) => {
+                    setPlan(updated);
+                    setDemoMode(updated.confidence_notes.content.toLowerCase().includes("demo"));
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
-      </div>
-      )}
       </div>
     </main>
   );
