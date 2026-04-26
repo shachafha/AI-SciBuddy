@@ -100,4 +100,4 @@ npm run dev
 
 ## Limitations and Safety Note
 **AI SciBuddy generates high-level planning drafts for review, NOT operational wet-lab instructions.**
-Do not use this output as step-by-step biological, chemical, clinical, animal, or environmental release instructions. For regulated, hazardous, pathogenic, human-subject, animal-subject, gene-editing, or chemical-risk work, **PI and institutional approval is strictly required before execution**.
+Do not use this output as step-by-step biological, chemical, clinical, animal, or environmental release instructions. For regulated, hazardous, pathogenic, human-subject, animal-subject, gene-editing, or chemical-risk work, **PI and institutional approval is strictly required before execution**..
