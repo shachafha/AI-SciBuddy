@@ -499,22 +499,25 @@ List the section name(s) that were modified in updated_sections.
         plan = _ground_plan(plan, None, [])
         plan.lab_workflow = generate_lab_view(plan)
         
-        # Log to Review Log
-        from .feedback_store import add_feedback
-        from .schemas import ScientistFeedback
-        
-        user_msgs = [msg for msg in payload.messages if msg.role == "user"]
-        last_request = user_msgs[-1].content if user_msgs else "Chat revision"
-        
-        add_feedback(ScientistFeedback(
-            plan_id="chat_revision",
-            section=", ".join(plan.updated_sections) if plan.updated_sections else "General",
-            rating=5,
-            correction=f"Agent Chat Revision Applied:\n{last_request}",
-            tags=["chat-revision", "agentic"],
-            hypothesis=payload.hypothesis
-        ))
-        
+        # Log to Review Log — best-effort, don't crash if filesystem is read-only (e.g. Vercel)
+        try:
+            from .feedback_store import add_feedback
+            from .schemas import ScientistFeedback
+
+            user_msgs = [msg for msg in payload.messages if msg.role == "user"]
+            last_request = user_msgs[-1].content if user_msgs else "Chat revision"
+
+            add_feedback(ScientistFeedback(
+                plan_id="chat_revision",
+                section=", ".join(plan.updated_sections) if plan.updated_sections else "General",
+                rating=5,
+                correction=f"Agent Chat Revision Applied:\n{last_request}",
+                tags=["chat-revision", "agentic"],
+                hypothesis=payload.hypothesis
+            ))
+        except Exception as feedback_err:
+            logger.warning("Could not persist chat revision feedback (read-only fs?): %s", feedback_err)
+
         return plan
 
     # Fallback if LLM fails
