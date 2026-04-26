@@ -2,6 +2,7 @@
 
 import { CSSProperties, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Badge, Card, Button, SecondaryButton } from "@/components/ui";
 import { ExperimentPlanViewer } from "@/components/experiment-plan-viewer";
 import { HypothesisSummaryCard } from "@/components/hypothesis-summary-card";
@@ -68,8 +69,8 @@ function TopAppNav({
 
         {/* Logo + Phase Badge */}
         <div className="flex min-w-0 items-center gap-3 px-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary shadow-sm">
-            <FlaskConical className="h-5 w-5" />
+          <div className="relative h-[44px] w-[44px] shrink-0 sm:h-[52px] sm:w-[52px]">
+            <Image src="/logo.png" alt="AI SciBuddy teddy bear scientist logo" fill className="object-contain" priority />
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-black tracking-tight text-slate-900">AI SciBuddy</div>
@@ -459,7 +460,6 @@ export default function Home() {
       }}
     >
       <LabBackground mouse={mouse} />
-      
       {demoMode ? (
         <div className="fixed right-0 top-0 z-50 m-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 font-mono text-xs font-semibold uppercase tracking-wider text-amber-800 shadow-sm pointer-events-none">
           Demo Mode Active
