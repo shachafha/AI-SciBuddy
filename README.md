@@ -1,5 +1,15 @@
 # AI SciBuddy
 
+## Project Website
+
+Visit the deployed app here: https://ai-sci-buddy.vercel.app/
+
+## Project Members
+
+- Shachaf Rispler
+- Mana Abbaszadeh
+- Ayush Verma
+
 ## Problem
 Turning a high-level scientific hypothesis into a structured, PI-review-ready experiment plan is a slow and error-prone process. Scientists spend hours searching literature, identifying validated protocols, sourcing materials, and estimating budgets. Furthermore, institutional knowledge and past mistakes (e.g., "always add extra time for this assay") are rarely captured in a way that helps future planning.
 
