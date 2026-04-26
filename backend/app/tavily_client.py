@@ -33,12 +33,12 @@ class TavilySearchResult(TypedDict):
 
 
 class GeneratedQueries(TypedDict):
-    exact_hypothesis: str
-    similar_paper: str
-    protocol: str
-    materials: str
-    validation: str
-    safety: str
+    exact_hypothesis: list[str]
+    similar_paper: list[str]
+    protocol: list[str]
+    materials: list[str]
+    validation: list[str]
+    safety: list[str]
 
 
 SUPPLIER_TERMS = "Thermo Fisher Sigma Aldrich Promega Qiagen ATCC Addgene IDT"
@@ -211,7 +211,7 @@ def parse_hypothesis(hypothesis: str, domain: str | None = None) -> ParsedHypoth
     return parsed
 
 
-def generate_tavily_queries(hypothesis: str, parsed: ParsedHypothesis) -> GeneratedQueries:
+def generate_tavily_queries(hypothesis: str, parsed: ParsedHypothesis, broadened: bool = False) -> GeneratedQueries:
     intervention = parsed.intervention or hypothesis
     system = parsed.system or parsed.domain or hypothesis
     outcome = parsed.measurable_outcome or "measurable outcome"
@@ -220,14 +220,45 @@ def generate_tavily_queries(hypothesis: str, parsed: ParsedHypothesis) -> Genera
     domain = parsed.domain or "science"
     threshold = f" {parsed.threshold}" if parsed.threshold else ""
 
-    queries: GeneratedQueries = {
-        "exact_hypothesis": f'"{hypothesis}" exact scientific paper protocol{threshold}',
-        "similar_paper": f'{domain} "{intervention}" "{system}" "{outcome}" "{mechanism}" similar paper prior work',
-        "protocol": f'{domain} "{intervention}" "{system}" "{outcome}" protocol {PROTOCOL_SITES}',
-        "materials": f'{domain} "{intervention}" "{system}" materials reagents supplier {SUPPLIER_TERMS}',
-        "validation": f'{domain} "{outcome}" "{system}" validation assay method measurement "{control}"',
-        "safety": f'{domain} "{intervention}" "{system}" safety ethics regulatory biosafety chemical safety institutional approval',
-    }
+    if broadened:
+        queries: GeneratedQueries = {
+            "exact_hypothesis": [f'"{intervention}" "{system}"'],
+            "similar_paper": [
+                f'"{intervention}" "{outcome}"',
+                f'"{system}" "{outcome}"',
+            ],
+            "protocol": [f'"{intervention}" protocol {PROTOCOL_SITES}'],
+            "materials": [f'"{intervention}" materials reagents supplier {SUPPLIER_TERMS}'],
+            "validation": [f'"{outcome}" assay method'],
+            "safety": [f'"{intervention}" safety biosafety'],
+        }
+    else:
+        queries: GeneratedQueries = {
+            "exact_hypothesis": [
+                f'"{hypothesis}" exact scientific paper protocol{threshold}',
+                f'{intervention} {system} {outcome} {mechanism}',
+            ],
+            "similar_paper": [
+                f'{domain} "{intervention}" "{system}" "{outcome}" "{mechanism}"',
+                f'{domain} "{intervention}" "{outcome}"',
+                f'{domain} "{system}" "{outcome}" "{mechanism}"',
+            ],
+            "protocol": [
+                f'{domain} "{intervention}" "{system}" "{outcome}" protocol {PROTOCOL_SITES}',
+                f'{domain} "{intervention}" assay method {PROTOCOL_SITES}',
+            ],
+            "materials": [
+                f'{domain} "{intervention}" "{system}" materials reagents supplier {SUPPLIER_TERMS}',
+                f'{domain} "{intervention}" kit {SUPPLIER_TERMS}',
+            ],
+            "validation": [
+                f'{domain} "{outcome}" "{system}" validation assay method measurement "{control}"',
+                f'{domain} "{outcome}" readout measurement',
+            ],
+            "safety": [
+                f'{domain} "{intervention}" "{system}" safety ethics regulatory biosafety chemical safety',
+            ],
+        }
     logger.info("Generated Tavily queries: %s", queries)
     return queries
 
@@ -279,16 +310,18 @@ def _run_search(query: str, source_type: SourceType, max_results: int = 5) -> li
         return _mock_results(source_type, query)
 
 
-def search_all_targets(hypothesis: str, domain: str | None = None) -> tuple[ParsedHypothesis, GeneratedQueries, list[TavilySearchResult]]:
+def search_all_targets(hypothesis: str, domain: str | None = None, broadened: bool = False) -> tuple[ParsedHypothesis, GeneratedQueries, list[TavilySearchResult]]:
     parsed = parse_hypothesis(hypothesis, domain)
-    queries = generate_tavily_queries(hypothesis, parsed)
+    queries = generate_tavily_queries(hypothesis, parsed, broadened=broadened)
     results: list[TavilySearchResult] = []
-    results.extend(_run_search(queries["exact_hypothesis"], "exact_hypothesis", max_results=3))
-    results.extend(_run_search(queries["similar_paper"], "similar_paper", max_results=4))
-    results.extend(_run_search(queries["protocol"], "protocol", max_results=4))
-    results.extend(_run_search(queries["materials"], "materials", max_results=4))
-    results.extend(_run_search(queries["validation"], "validation", max_results=4))
-    results.extend(_run_search(queries["safety"], "safety", max_results=3))
+    
+    for q in queries["exact_hypothesis"]: results.extend(_run_search(q, "exact_hypothesis", max_results=3))
+    for q in queries["similar_paper"]: results.extend(_run_search(q, "similar_paper", max_results=3))
+    for q in queries["protocol"]: results.extend(_run_search(q, "protocol", max_results=3))
+    for q in queries["materials"]: results.extend(_run_search(q, "materials", max_results=3))
+    for q in queries["validation"]: results.extend(_run_search(q, "validation", max_results=3))
+    for q in queries["safety"]: results.extend(_run_search(q, "safety", max_results=3))
+    
     logger.info("Tavily targeted search returned %s normalized results.", len(results))
     return parsed, queries, results
 
@@ -296,28 +329,39 @@ def search_all_targets(hypothesis: str, domain: str | None = None) -> tuple[Pars
 def search_literature(hypothesis: str) -> list[TavilySearchResult]:
     parsed = parse_hypothesis(hypothesis)
     queries = generate_tavily_queries(hypothesis, parsed)
-    return _run_search(queries["exact_hypothesis"], "exact_hypothesis") + _run_search(queries["similar_paper"], "similar_paper")
+    res = []
+    for q in queries["exact_hypothesis"]: res.extend(_run_search(q, "exact_hypothesis"))
+    for q in queries["similar_paper"]: res.extend(_run_search(q, "similar_paper"))
+    return res
 
 
 def search_protocols(hypothesis: str) -> list[TavilySearchResult]:
     parsed = parse_hypothesis(hypothesis)
     queries = generate_tavily_queries(hypothesis, parsed)
-    return _run_search(queries["protocol"], "protocol")
+    res = []
+    for q in queries["protocol"]: res.extend(_run_search(q, "protocol"))
+    return res
 
 
 def search_materials(hypothesis: str) -> list[TavilySearchResult]:
     parsed = parse_hypothesis(hypothesis)
     queries = generate_tavily_queries(hypothesis, parsed)
-    return _run_search(queries["materials"], "materials")
+    res = []
+    for q in queries["materials"]: res.extend(_run_search(q, "materials"))
+    return res
 
 
 def search_validation_methods(hypothesis: str) -> list[TavilySearchResult]:
     parsed = parse_hypothesis(hypothesis)
     queries = generate_tavily_queries(hypothesis, parsed)
-    return _run_search(queries["validation"], "validation")
+    res = []
+    for q in queries["validation"]: res.extend(_run_search(q, "validation"))
+    return res
 
 
 def search_safety_ethics(hypothesis: str) -> list[TavilySearchResult]:
     parsed = parse_hypothesis(hypothesis)
     queries = generate_tavily_queries(hypothesis, parsed)
-    return _run_search(queries["safety"], "safety")
+    res = []
+    for q in queries["safety"]: res.extend(_run_search(q, "safety"))
+    return res

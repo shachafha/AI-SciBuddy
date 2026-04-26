@@ -9,15 +9,27 @@ from .tavily_client import TavilySearchResult, search_all_targets
 NoveltySignal = Literal["not_found", "similar_work_exists", "exact_match_found"]
 Classification = tuple[NoveltySignal, float, str, list[ReferenceRubricScore]]
 
+SYNONYM_GROUPS = [
+    {"oxidative stress", "ros", "reactive oxygen species", "redox stress", "mitochondrial ros"},
+    {"aged", "aging", "ageing", "senescent", "senescence", "old"},
+    {"fibroblasts", "fibroblast", "dermal fibroblast", "human fibroblast", "fibroblast cells"},
+    {"senolytic", "senolytics", "dasatinib", "quercetin", "navitoclax", "abt-263", "fisetin"},
+    {"priming", "preconditioning", "pretreatment", "pre-treatment", "low dose", "sublethal exposure"},
+    {"dc-fda", "dcfda", "ros assay", "oxidative damage", "antioxidant response", "stress response"},
+]
+
 
 def _dedupe_results(results: list[TavilySearchResult]) -> list[TavilySearchResult]:
+    import re
     seen: set[str] = set()
     unique: list[TavilySearchResult] = []
     for result in sorted(results, key=lambda item: item["score"], reverse=True):
-        key = result["url"] or result["title"].lower()
-        if key in seen:
+        norm_url = re.sub(r"^https?://(?:www\.)?", "", result["url"]).rstrip("/")
+        norm_title = re.sub(r"[^a-z0-9]", "", result["title"].lower())
+        if (norm_title and norm_title in seen) or (norm_url and norm_url in seen):
             continue
-        seen.add(key)
+        if norm_title: seen.add(norm_title)
+        if norm_url: seen.add(norm_url)
         unique.append(result)
     return unique
 
@@ -48,13 +60,29 @@ def _component_score(value: str | None, result: TavilySearchResult) -> int:
     if not value:
         return 0
     haystack = f"{result['title']} {result['content']} {result['snippet']}".lower()
-    terms = [term for term in re_split_terms(value) if len(term) > 3]
-    if not terms:
+    
+    base_terms = set([t for t in value.lower().replace("-", " ").replace("/", " ").split() if len(t) > 3])
+    if value.lower() not in base_terms:
+        base_terms.add(value.lower())
+        
+    expanded_terms = set(base_terms)
+    for term in base_terms:
+        for group in SYNONYM_GROUPS:
+            if term in group or any(term in g for g in group):
+                expanded_terms.update(group)
+
+    if not expanded_terms:
+        expanded_terms.update([t for t in value.lower().split() if len(t) > 2])
+        
+    if not expanded_terms:
         return 0
-    hits = sum(1 for term in terms if term in haystack)
-    if hits >= max(2, len(terms) // 2):
+
+    base_hits = sum(1 for term in base_terms if term in haystack)
+    expanded_hits = sum(1 for term in expanded_terms if term in haystack)
+    
+    if base_hits >= max(1, len(base_terms) // 2) or expanded_hits >= 2:
         return 2
-    if hits:
+    if expanded_hits > 0:
         return 1
     return 0
 
@@ -215,12 +243,21 @@ def assess_literature_qc(
     constraints: str | None = None,
 ) -> LiteratureQC:
     parsed, _queries, results = search_all_targets(hypothesis, domain)
+    
+    literature_results = [r for r in results if r["source_type"] in {"exact_hypothesis", "similar_paper", "literature", "protocol"}]
+    rubric = _heuristic_rubric(_dedupe_results(literature_results), parsed)
+    
+    broadened_search = False
+    if not rubric or max((s.total for s in rubric), default=0) == 0:
+        broadened_search = True
+        parsed, _queries, results = search_all_targets(hypothesis, domain, broadened=True)
+
     literature_results = [
         result
         for result in results
         if result["source_type"] in {"exact_hypothesis", "similar_paper", "literature", "protocol"}
     ]
-    best_results = _dedupe_results(literature_results)[:3]
+    best_results = _dedupe_results(literature_results)[:10]
     mock = any(result["mock"] for result in best_results)
 
     classified = _llm_classification(hypothesis, parsed, best_results)
@@ -241,6 +278,34 @@ def assess_literature_qc(
             scored_urls.add(fallback_score.url)
             scored_titles.add(fallback_score.title)
 
+    reference_scores.sort(key=lambda s: s.total, reverse=True)
+    best_results.sort(key=lambda r: next((s.total for s in reference_scores if s.url == r["url"]), 0), reverse=True)
+    search_results = _dedupe_results(results)
+    search_results.sort(key=lambda r: next((s.total for s in reference_scores if s.url == r["url"]), 0), reverse=True)
+
+    best_score = max(reference_scores, key=lambda s: s.total, default=None)
+    if best_score and not mock:
+        is_exact = False
+        if best_score.total >= 8:
+            core_sum = best_score.intervention_match + best_score.system_match + best_score.outcome_match + best_score.method_protocol_match
+            if core_sum >= 6 and all(getattr(best_score, k) > 0 for k in ["intervention_match", "system_match", "outcome_match", "method_protocol_match"]):
+                is_exact = True
+
+        if is_exact:
+            signal = "exact_match_found"
+            summary = f"Direct duplicate found. The strongest match scored {best_score.total}/10 with critical overlap in intervention, system, outcome, and method."
+        elif best_score.total >= 4:
+            signal = "similar_work_exists"
+            summary = f"No direct duplicate found. We found related and adjacent literature below; review the strongest overlaps before generating a plan. Best match scored {best_score.total}/10."
+        else:
+            signal = "not_found"
+            summary = f"No direct duplicate found. Literature returned only background or adjacent context (highest score {best_score.total}/10)."
+
+    if broadened_search:
+        summary += " Initial search was too narrow, so the system broadened the query."
+    elif best_score and best_score.total == 0:
+        summary += " The search returned only weak matches. Try broadening or refining the hypothesis."
+
     return LiteratureQC(
         novelty_signal=signal,
         confidence=round(confidence, 2),
@@ -248,5 +313,5 @@ def assess_literature_qc(
         references=[_to_reference(result) for result in best_results],
         reference_scores=reference_scores,
         parsed_hypothesis=parsed,
-        search_results=[TavilyEvidence(**result) for result in _dedupe_results(results)],
+        search_results=[TavilyEvidence(**result) for result in search_results],
     )

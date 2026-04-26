@@ -15,13 +15,23 @@ const signalLabels = {
 };
 
 const sourceTypeStyles: Record<string, string> = {
-  exact_hypothesis: "bg-purple-100 text-purple-800 border-purple-200",
-  similar_paper: "bg-blue-100 text-blue-800 border-blue-200",
-  protocol: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  validation: "bg-amber-100 text-amber-800 border-amber-200",
-  safety: "bg-rose-100 text-rose-800 border-rose-200",
+  exact_hypothesis: "bg-slate-100 text-slate-800 border-slate-200",
+  similar_paper: "bg-slate-100 text-slate-800 border-slate-200",
+  protocol: "bg-slate-100 text-slate-800 border-slate-200",
+  validation: "bg-slate-100 text-slate-800 border-slate-200",
+  safety: "bg-slate-100 text-slate-800 border-slate-200",
   materials: "bg-slate-100 text-slate-800 border-slate-200",
-  literature: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  literature: "bg-slate-100 text-slate-800 border-slate-200",
+};
+
+const sourceBucketLabels: Record<string, string> = {
+  exact_hypothesis: "Phrase Search",
+  similar_paper: "Semantic Search",
+  protocol: "Protocol Search",
+  validation: "Validation Search",
+  safety: "Safety Search",
+  materials: "Materials Search",
+  literature: "Literature Search",
 };
 
 const priorityMap: Record<string, number> = {
@@ -42,15 +52,46 @@ type MergedRef = {
   mock: boolean;
 };
 
+const SYNONYM_GROUPS = [
+  ["oxidative stress", "ros", "reactive oxygen species", "redox stress", "mitochondrial ros"],
+  ["aged", "aging", "ageing", "senescent", "senescence", "old"],
+  ["fibroblasts", "fibroblast", "dermal fibroblast", "human fibroblast", "fibroblast cells"],
+  ["senolytic", "senolytics", "dasatinib", "quercetin", "navitoclax", "abt-263", "fisetin"],
+  ["priming", "preconditioning", "pretreatment", "pre-treatment", "low dose", "sublethal exposure"],
+  ["dc-fda", "dcfda", "ros assay", "oxidative damage", "antioxidant response", "stress response"],
+];
+
 function computeFrontendFallback(ref: MergedRef, parsed?: ParsedHypothesis | null): ReferenceRubricScore {
   const text = (ref.title + " " + ref.summary).toLowerCase();
+  
   const getScore = (val?: string | null) => {
     if (!val) return 0;
-    const terms = val.replace(/[-/]/g, " ").split(/\s+/).filter(t => t.length > 3);
-    if (!terms.length) return 0;
-    const hits = terms.filter(t => text.includes(t.toLowerCase())).length;
-    if (hits >= Math.max(2, Math.floor(terms.length / 2))) return 2;
-    if (hits > 0) return 1;
+    
+    const baseTerms = new Set(val.toLowerCase().replace(/[-/]/g, " ").split(/\s+/).filter(t => t.length > 3));
+    if (!baseTerms.has(val.toLowerCase())) {
+        baseTerms.add(val.toLowerCase());
+    }
+    
+    const expandedTerms = new Set(baseTerms);
+    for (const term of Array.from(baseTerms)) {
+      for (const group of SYNONYM_GROUPS) {
+        if (group.some(g => g.includes(term) || term.includes(g))) {
+          group.forEach(g => expandedTerms.add(g));
+        }
+      }
+    }
+    
+    if (expandedTerms.size === 0) {
+      val.toLowerCase().split(/\s+/).filter(t => t.length > 2).forEach(t => expandedTerms.add(t));
+    }
+    
+    if (expandedTerms.size === 0) return 0;
+    
+    const baseHits = Array.from(baseTerms).filter(t => text.includes(t)).length;
+    const expandedHits = Array.from(expandedTerms).filter(t => text.includes(t)).length;
+    
+    if (baseHits >= Math.max(1, Math.floor(baseTerms.size / 2)) || expandedHits >= 2) return 2;
+    if (expandedHits > 0) return 1;
     return 0;
   };
   
@@ -187,6 +228,11 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
   }
 
   const mergedRefs = Array.from(mergedMap.values()).sort((a, b) => {
+    const scoreA = qc.reference_scores?.find(s => s.url === a.url || s.title === a.title)?.total ?? computeFrontendFallback(a, qc.parsed_hypothesis).total;
+    const scoreB = qc.reference_scores?.find(s => s.url === b.url || s.title === b.title)?.total ?? computeFrontendFallback(b, qc.parsed_hypothesis).total;
+    if (scoreB !== scoreA) {
+      return scoreB - scoreA;
+    }
     const pA = priorityMap[a.sourceType] || 99;
     const pB = priorityMap[b.sourceType] || 99;
     return pA - pB;
@@ -217,6 +263,19 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
       
       <p className="mt-4 text-sm leading-relaxed text-slate-700 bg-slate-50 p-4 rounded-xl border border-border/40">{qc.summary}</p>
       
+      {mergedRefs.length > 0 && (() => {
+        const bestScore = qc.reference_scores?.find(s => s.url === mergedRefs[0].url || s.title === mergedRefs[0].title)?.total ?? computeFrontendFallback(mergedRefs[0], qc.parsed_hypothesis).total;
+        if (bestScore === 0) {
+          return (
+            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4">
+              <div className="text-xs font-bold uppercase tracking-wider text-rose-800 mb-1">Low Confidence Results</div>
+              <p className="text-sm text-rose-900 leading-relaxed">The search returned only weak/background matches. Try broadening or refining your hypothesis parameters.</p>
+            </div>
+          );
+        }
+        return null;
+      })()}
+      
       {qc.parsed_hypothesis ? (
         <div className="mt-6 rounded-xl border border-primary/10 bg-primary/5 p-4">
           <div className="text-xs font-bold uppercase tracking-wider text-primary mb-3">Hypothesis Decomposition Matrix</div>
@@ -243,7 +302,33 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
         <h4 className="text-sm font-black tracking-tight text-slate-900 mb-4 border-b border-border/40 pb-2">Source Trace Analysis</h4>
         {mergedRefs.map((ref) => {
           const scoreMatch = qc.reference_scores?.find(s => s.url === ref.url || s.title === ref.title);
+          const effectiveScore = scoreMatch || computeFrontendFallback(ref, qc.parsed_hypothesis);
+          
+          let matchQualityBadge = "Background Context";
+          let matchQualityClass = "bg-slate-100 text-slate-800 border-slate-200";
+
+          if (effectiveScore.total >= 8) {
+            const coreSum = effectiveScore.intervention_match + effectiveScore.system_match + effectiveScore.outcome_match + effectiveScore.method_protocol_match;
+            if (coreSum >= 6 && effectiveScore.intervention_match > 0 && effectiveScore.system_match > 0 && effectiveScore.outcome_match > 0 && effectiveScore.method_protocol_match > 0) {
+              matchQualityBadge = "Exact Hypothesis Match";
+              matchQualityClass = "bg-purple-100 text-purple-800 border-purple-200";
+            } else {
+              matchQualityBadge = "Strong Overlap";
+              matchQualityClass = "bg-blue-100 text-blue-800 border-blue-200";
+            }
+          } else if (effectiveScore.total >= 6) {
+            matchQualityBadge = "Strong Related Work";
+            matchQualityClass = "bg-emerald-100 text-emerald-800 border-emerald-200";
+          } else if (effectiveScore.total >= 3) {
+            matchQualityBadge = "Partial Overlap";
+            matchQualityClass = "bg-amber-100 text-amber-800 border-amber-200";
+          } else {
+            matchQualityBadge = "Weak/Background Overlap";
+            matchQualityClass = "bg-slate-100 text-slate-800 border-slate-200";
+          }
+
           const badgeClass = sourceTypeStyles[ref.sourceType] || "bg-gray-100 text-gray-800 border-gray-200";
+          const sourceCategoryLabel = sourceBucketLabels[ref.sourceType] || ref.sourceType.replace("_", " ");
           
           return (
             <a
@@ -258,7 +343,8 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
                 <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 opacity-50 group-hover:opacity-100" />
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Badge className={`font-mono text-[10px] uppercase tracking-wider border ${badgeClass}`}>{ref.sourceType.replace("_", " ")}</Badge>
+                <Badge className={`font-mono text-[10px] uppercase tracking-wider border ${badgeClass}`}>{sourceCategoryLabel}</Badge>
+                <Badge className={`font-mono text-[10px] uppercase tracking-wider border ${matchQualityClass}`}>{matchQualityBadge}</Badge>
                 {ref.mock ? <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-mono text-[10px] uppercase tracking-wider">MOCK SEARCH RESULT</Badge> : null}
               </div>
               <p className="mt-4 text-sm leading-relaxed text-slate-600 italic">"{ref.summary}"</p>
