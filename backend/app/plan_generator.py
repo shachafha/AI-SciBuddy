@@ -470,7 +470,7 @@ def regenerate_plan_from_chat(payload: "ChatRegenerateRequest") -> ExperimentPla
     prompt = f"""
 CRITICAL INSTRUCTION: You MUST revise this PI-review planning draft to incorporate the changes discussed in the Conversation History between the user and the agent.
 You are NOT generating a new plan from scratch. You are editing the Current plan based on the user's requested revisions in the chat.
-If the user requested a change to the budget, you MUST update the budget section. If they requested new materials, update the materials section. If they asked to add a lab view block, adjust the protocol or materials accordingly.
+If the user requested a change to the budget, you MUST update the budget section with specific line items. If they asked to adjust the timeline, update the timeline. If they asked about risks or safety, update those sections.
 
 Preserve source grounding and safety limits.
 

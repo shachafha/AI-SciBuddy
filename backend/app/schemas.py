@@ -190,7 +190,9 @@ class LabView(StrictModel):
     edges: list[LabEdge]
 
 
-class ExperimentPlan(StrictModel):
+class ExperimentPlan(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     title: str
     hypothesis: str
     executive_summary: GroundedSection[str]
@@ -202,6 +204,7 @@ class ExperimentPlan(StrictModel):
     source_trace: list[SourceCitation]
     confidence_notes: GroundedSection[str]
     updated_sections: list[str] = Field(default_factory=list)
+
 
 
 class FeedbackRecord(ScientistFeedback):
