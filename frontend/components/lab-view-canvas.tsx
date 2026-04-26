@@ -18,6 +18,7 @@ import {
   addEdge
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import dagre from "dagre";
 import type { ExperimentPlan, LabView, LabNode } from "@/lib/types";
 import { Button, Badge } from "@/components/ui";
 import { Info, Flag, Layout, BookOpen, ExternalLink, Pencil, Plus, RotateCcw, Trash2, AlertTriangle, RefreshCw, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
@@ -170,15 +171,36 @@ function LabViewCanvasInner({ workflow, plan, hypothesis, onRegenerate }: LabVie
     };
   }, [getNodes, getEdges, workflow.version]);
 
-  // Layout function
-  const getLayoutedElements = useCallback((nodesData: LabNode[], edgesData: any[], isLearnMode: boolean) => {
-    const layoutedNodes: Node[] = nodesData.map((n, i) => {
-      const col = i % 3;
-      const row = Math.floor(i / 3);
+  // Layout function using dagre for hierarchical tree structure
+  const getLayoutedElements = useCallback((nodesData: LabNode[], edgesData: any[], isLearnMode: boolean, direction = 'TB') => {
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+    
+    // Set layout options (Top to Bottom by default)
+    dagreGraph.setGraph({ rankdir: direction, nodesep: 50, ranksep: 100 });
+
+    const nodeWidth = 260;
+    const nodeHeight = isLearnMode ? 250 : 150;
+
+    nodesData.forEach((n) => {
+      dagreGraph.setNode(n.id, { width: nodeWidth, height: nodeHeight });
+    });
+
+    edgesData.forEach((e) => {
+      dagreGraph.setEdge(e.source, e.target);
+    });
+
+    dagre.layout(dagreGraph);
+
+    const layoutedNodes: Node[] = nodesData.map((n) => {
+      const nodeWithPosition = dagreGraph.node(n.id);
       return {
         id: n.id,
         type: 'labNode',
-        position: { x: col * 320 + 50, y: row * (isLearnMode ? 200 : 150) + 50 },
+        position: { 
+          x: nodeWithPosition.x - nodeWidth / 2, 
+          y: nodeWithPosition.y - nodeHeight / 2 
+        },
         data: { 
           ...n, 
           showDescription: isLearnMode 
