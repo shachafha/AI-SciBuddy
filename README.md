@@ -1,4 +1,7 @@
-# AI SciBuddy
+<div align="center">
+  <img src="logo.png" alt="AI SciBuddy Logo" width="150" />
+  <h1>AI SciBuddy</h1>
+</div>
 
 ## Project Website
 
