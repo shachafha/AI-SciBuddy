@@ -216,7 +216,7 @@ Return only JSON:
 """.strip()
 
     try:
-        raw = databricks_prompt(prompt, temperature=0.1, timeout=8)
+        raw = databricks_prompt(prompt, temperature=0.1, timeout=30)
         if raw is None:
             return None
         parsed = _extract_json(raw)

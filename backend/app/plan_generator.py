@@ -100,66 +100,21 @@ def _mock_plan(
         title="PI-review planning draft for hypothesis validation",
         hypothesis=hypothesis,
         executive_summary=_section(
-            "This draft converts the hypothesis into a source-grounded review plan with high-level protocol design, material categories, validation metrics, and explicit safety review gates.",
+            "This draft converts the hypothesis into a source-grounded review plan with budget estimates, a timeline, and explicit safety review gates.",
             [evidence_url],
             0.74,
         ),
-        protocol_summary=_section(
-            [
-                f"Review protocol evidence before selecting the final study design: {protocol_url}",
-                "Define experimental and comparator groups at a conceptual level, then have qualified personnel translate them into an approved protocol.",
-                "Use validated endpoint categories and prespecified decision criteria rather than improvised operational steps.",
-                "Document deviations, QC flags, and analysis assumptions for PI review before interpreting results.",
-            ],
-            [protocol_url],
-            0.7,
-        ),
-        materials=_section(
-            [
-                {
-                    "item": "Domain-appropriate experimental model or sample source",
-                    "purpose": "Support matched comparison groups aligned to the hypothesis.",
-                    "supplier_hint": "Use institution-approved sourcing or vetted suppliers identified in Tavily material evidence.",
-                    "catalog_number": "not found in retrieved sources",
-                    "estimated_cost": 400.0,
-                    "evidence_url": material_url,
-                },
-                {
-                    "item": "Validated assay or measurement service",
-                    "purpose": "Measure the primary outcome and an orthogonal confirmation readout.",
-                    "supplier_hint": "Prefer assays with published validation or supplier documentation.",
-                    "catalog_number": "not found in retrieved sources",
-                    "estimated_cost": 900.0,
-                    "evidence_url": validation_url,
-                },
-                {
-                    "item": "Data capture and QC workspace",
-                    "purpose": "Track source references, raw observations, QC outcomes, and review decisions.",
-                    "supplier_hint": "Use an approved ELN, repository, or internal analysis environment.",
-                    "catalog_number": "not found in retrieved sources",
-                    "estimated_cost": 150.0,
-                    "evidence_url": evidence_url,
-                },
-            ],
-            [material_url, validation_url],
-            0.66,
-            ["Catalog numbers were not present in retrieved sources and must not be invented."],
-        ),
         budget=_section([
-            {"category": "Evidence review", "item": "PI and literature/protocol review", "estimated_cost": 300.0, "notes": f"Traceable to {evidence_url}."},
-            {"category": "Materials", "item": "Samples, reagents, or services", "estimated_cost": 1300.0, "notes": f"Grounded by supplier/material evidence: {material_url}."},
-            {"category": "Validation", "item": "Primary and orthogonal readouts", "estimated_cost": 900.0, "notes": f"Grounded by validation evidence: {validation_url}."},
+            {"category": "Evidence review", "item": "PI and literature review", "estimated_cost": 300.0, "notes": f"Traceable to {evidence_url}."},
+            {"category": "Materials", "item": "Core experimental model or sample source", "estimated_cost": 400.0, "notes": f"Grounded by supplier/material evidence: {material_url}."},
+            {"category": "Reagents & Assays", "item": "Validated assay or measurement service", "estimated_cost": 900.0, "notes": f"Grounded by validation evidence: {validation_url}."},
+            {"category": "Data & QC", "item": "Data capture and QC workspace", "estimated_cost": 150.0, "notes": f"Traceable to {evidence_url}."},
         ], [evidence_url, material_url, validation_url], 0.62, ["Budget estimates are planning placeholders, not supplier quotes."]),
         timeline=_section([
-            {"phase": "PI design review", "duration": "1 week", "dependencies": ["Literature QC", "Protocol evidence review"], "deliverable": "Approved high-level study design"},
+            {"phase": "PI design review", "duration": "1 week", "dependencies": ["Literature QC"], "deliverable": "Approved high-level study design"},
             {"phase": "Sourcing and safety review", "duration": "1-2 weeks", "dependencies": ["Materials evidence", "Institutional approval if required"], "deliverable": "Sourcing and safety decision log"},
             {"phase": "Qualified execution and analysis", "duration": "2-5 weeks", "dependencies": ["Approved protocol", "Validated measurement plan"], "deliverable": "QC-reviewed results summary"},
         ], [protocol_url, material_url], 0.64),
-        validation=_section([
-            {"metric": "Primary outcome direction", "success_threshold": "Effect is consistent with the hypothesis and materially larger than control variation.", "measurement_method": f"Validated endpoint category supported by {validation_url}."},
-            {"metric": "Control behavior", "success_threshold": "Comparator and quality controls perform within predefined expectations.", "measurement_method": "Control QC review by qualified personnel."},
-            {"metric": "Traceability", "success_threshold": "Each design choice maps to a source trace or reviewer correction.", "measurement_method": "Source trace and feedback audit."},
-        ], [validation_url], 0.7),
         risks_and_assumptions=_section([
             "This draft assumes Tavily evidence is representative enough for planning but not final protocol approval.",
             "Novelty claims remain provisional until the PI reviews exact overlap in intervention, system, outcome, and method.",
@@ -203,32 +158,11 @@ Return one valid JSON object with exactly this shape:
     "supporting_sources": ["URL from provided Tavily evidence"],
     "assumptions": ["string"]
   },
-  "protocol_summary": {
-    "content": ["high-level planning step only, no operational wet-lab detail"],
-    "confidence": 0,
-    "supporting_sources": ["URL from provided Tavily evidence"],
-    "assumptions": ["string"]
-  },
-  "materials": {
-    "content": [
-    {
-      "item": "string",
-      "purpose": "string",
-      "supplier_hint": "string",
-      "catalog_number": "catalog number only if explicitly found in retrieved sources, otherwise 'not found in retrieved sources'",
-      "estimated_cost": 0,
-      "evidence_url": "must be one of the provided Tavily source URLs"
-    }
-    ],
-    "confidence": 0,
-    "supporting_sources": ["URL from provided Tavily evidence"],
-    "assumptions": ["string"]
-  },
   "budget": {
     "content": [
     {
-      "category": "string",
-      "item": "string",
+      "category": "string (e.g. Materials, Reagents, Equipment, Services)",
+      "item": "string (include specific material/reagent items here too)",
       "estimated_cost": 0,
       "notes": "include source URL or source title"
     }
@@ -250,25 +184,13 @@ Return one valid JSON object with exactly this shape:
     "supporting_sources": ["URL from provided Tavily evidence"],
     "assumptions": ["string"]
   },
-  "validation": {
-    "content": [
-    {
-      "metric": "string",
-      "success_threshold": "string",
-      "measurement_method": "high-level method category with source URL or source title"
-    }
-    ],
-    "confidence": 0,
-    "supporting_sources": ["URL from provided Tavily evidence"],
-    "assumptions": ["string"]
-  },
   "risks_and_assumptions": {
     "content": ["string"],
     "confidence": 0,
     "supporting_sources": ["URL from provided Tavily evidence"],
     "assumptions": ["string"]
   },
-    "safety_and_ethics_notes": {
+  "safety_and_ethics_notes": {
     "content": ["string"],
     "confidence": 0,
     "supporting_sources": ["URL from provided Tavily evidence"],
@@ -290,12 +212,12 @@ Return one valid JSON object with exactly this shape:
   "updated_sections": ["string"]
 }
 Do not include markdown. Do not include temperatures, doses, timings, recipes, exact procedural parameters, or instructions that would let an untrained person run a biological or chemical experiment.
-Never invent catalog numbers. If a catalog number is not explicitly present in retrieved sources, set catalog_number to "not found in retrieved sources".
 
 CRITICAL JSON RULES:
 - Your output must be STRICTLY VALID JSON.
 - Do NOT include trailing commas.
 - Do NOT output markdown code blocks. Return the raw JSON object starting with `{` and ending with `}`.
+- CRITICAL STRUCTURE RULE: Do NOT flatten the JSON. Every section (executive_summary, budget, timeline, risks_and_assumptions, safety_and_ethics_notes) MUST be a nested object with "content", "confidence", "supporting_sources", and "assumptions" keys exactly as shown in the shape above.
 """.strip()
 
 
@@ -329,18 +251,10 @@ def _ground_plan(plan: ExperimentPlan, qc: LiteratureQC | None, evidence: list[T
     trace = _source_trace(qc, evidence)
     if not trace:
         trace = plan.source_trace
-    source_urls = {source.url for source in trace}
-    fallback_url = trace[0].url if trace else "https://example.org/demo-evidence"
 
     fixed = plan.model_copy(deep=True)
     if not fixed.source_trace:
         fixed.source_trace = trace
-
-    for material in fixed.materials.content:
-        if not material.evidence_url or material.evidence_url not in source_urls:
-            material.evidence_url = fallback_url
-        if not material.catalog_number:
-            material.catalog_number = "not found in retrieved sources"
 
     safety_text = " ".join(fixed.safety_and_ethics_notes.content).lower()
     if "institutional" not in safety_text or "approval" not in safety_text:
@@ -403,11 +317,10 @@ Expert lessons learned (from relevant past feedback):
 {json.dumps([{"correction": item.correction, "section": item.section, "rating": item.rating} for item in feedback])}
 
 Requirements:
-- Include executive summary, protocol summary, materials and supply chain hints, budget, timeline, validation, risks, safety/ethics notes, and source trace.
-- Make every major claim traceable to one of the provided Tavily sources. Use source URLs in material evidence_url, budget notes, validation methods, confidence_notes, and source_trace.
+- Include executive summary, budget (include all key materials/reagents as line items), timeline, risks, safety/ethics notes, and source trace.
+- Make every major claim traceable to one of the provided Tavily sources. Use source URLs in budget notes, confidence_notes, and source_trace.
 - Every plan section must include content, confidence, supporting_sources, and assumptions.
-- Never invent supplier catalog numbers. Use "not found in retrieved sources" unless a retrieved source explicitly contains a catalog number.
-- Keep protocol_summary high-level and non-operational.
+- Include all key experimental materials and reagents directly as budget line items with estimated costs.
 - Do not provide dangerous procedural details that would let an untrained person run risky biological or chemical experiments.
 - For risky domains, add safety review notes and recommend institutional approval.
 

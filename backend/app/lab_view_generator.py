@@ -77,7 +77,7 @@ Convert the provided ExperimentPlan into a LabView graph structure with nodes an
 This is a high-level conceptual graph, not an operational wet-lab protocol. Do not output dangerous procedural details.
 
 ExperimentPlan context:
-{plan.model_dump_json(include={"hypothesis", "protocol_summary", "materials", "validation"})}
+{plan.model_dump_json(include={"hypothesis", "executive_summary", "budget", "timeline"})}
 
 Output exactly one valid JSON object matching this schema:
 {{

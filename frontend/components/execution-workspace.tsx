@@ -357,11 +357,11 @@ export function ExecutionWorkspace({ initialPlan }: { initialPlan: ExecutionPlan
                 This living workspace lets a scientist hand off a reviewed plan to an executor and track what is done, blocked, or ready for review.
               </p>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Badge className="justify-center border-primary/20 bg-primary/10 px-3 py-1 text-primary">{plan.status.replaceAll("_", " ")}</Badge>
-              <Button type="button" onClick={copyLink} className="w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="border-primary/20 bg-primary/10 px-3 py-1.5 text-primary capitalize">{plan.status.replaceAll("_", " ")}</Badge>
+              <Button type="button" onClick={copyLink} className="whitespace-nowrap">
                 {copied ? <ClipboardCheck className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
-                {copied ? "Link copied" : "Copy share link"}
+                {copied ? "Link Copied!" : "Copy Share Link"}
               </Button>
             </div>
           </div>

@@ -460,11 +460,7 @@ export default function Home() {
       }}
     >
       <LabBackground mouse={mouse} />
-      {demoMode ? (
-        <div className="fixed right-0 top-0 z-50 m-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 font-mono text-xs font-semibold uppercase tracking-wider text-amber-800 shadow-sm pointer-events-none">
-          Demo Mode Active
-        </div>
-      ) : null}
+
 
       {!hasStarted ? (
         <div className="relative z-10 flex min-h-screen flex-col items-center justify-center py-12">

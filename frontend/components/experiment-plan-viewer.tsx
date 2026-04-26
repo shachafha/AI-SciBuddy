@@ -26,12 +26,10 @@ type ExperimentPlanViewerMode = "experiment_plan" | "lab_view";
 export type PlanContextSection = "protocol" | "literature" | "materials" | "budget" | "timeline" | "validation" | "risks" | "sources";
 
 const planContextSections: { id: PlanContextSection; label: string }[] = [
-  { id: "protocol", label: "Protocol" },
+  { id: "protocol", label: "Overview" },
   { id: "literature", label: "Literature" },
-  { id: "materials", label: "Materials" },
   { id: "budget", label: "Budget" },
   { id: "timeline", label: "Timeline" },
-  { id: "validation", label: "Validation" },
   { id: "risks", label: "Risks" },
   { id: "sources", label: "Sources" },
 ];
@@ -72,7 +70,7 @@ function PlanHeader({ plan, mock, mode }: { plan: ExperimentPlan; mock?: boolean
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          {mock ? <Badge className="border-amber-200 bg-amber-50 text-amber-900 font-mono">MOCK_DATA</Badge> : null}
+          
           <Badge className="bg-emerald-50 text-emerald-900 border-emerald-200 font-mono">QC PASSED</Badge>
           {plan.updated_sections && plan.updated_sections.length > 0 ? (
             <Badge className="bg-emerald-50 text-emerald-900 border-emerald-200 font-mono">
@@ -112,69 +110,6 @@ function PlanOverview({ plan }: { plan: ExperimentPlan }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function ProtocolSection({ plan }: { plan: ExperimentPlan }) {
-  return (
-    <section className="space-y-4">
-      <div className="flex items-center gap-2">
-        <FlaskConical className="h-5 w-5 text-primary" />
-        <h3 className="text-lg font-black tracking-tight">Protocol</h3>
-      </div>
-      <ol className="relative border-s border-muted-foreground/20 ml-3 space-y-6">
-        {plan.protocol_summary.content.map((item, i) => (
-          <li key={i} className="ms-6">
-            <span className="absolute -start-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 ring-8 ring-white">
-              <span className="text-xs font-bold text-primary">{i + 1}</span>
-            </span>
-            <div className="rounded-xl border border-border/60 bg-white p-4 shadow-sm">
-              <p className="text-sm leading-relaxed text-slate-700">{item}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-      <SectionMeta section={plan.protocol_summary} className="mt-8" />
-    </section>
-  );
-}
-
-function MaterialsSection({ plan }: { plan: ExperimentPlan }) {
-  return (
-    <section>
-      <div className="mb-4 flex items-center gap-2">
-        <Beaker className="h-5 w-5 text-primary" />
-        <h3 className="text-lg font-black tracking-tight">Materials</h3>
-      </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        {plan.materials.content.map((material) => (
-          <a
-            key={`${material.item}-${material.evidence_url}`}
-            href={material.evidence_url}
-            target="_blank"
-            rel="noreferrer"
-            className="group flex flex-col rounded-xl border border-border/60 bg-white p-5 text-sm transition-all hover:border-primary/40 hover:shadow-md"
-          >
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="font-bold text-foreground group-hover:text-primary transition-colors text-base">{material.item}</div>
-              <Badge className="bg-primary/10 text-primary border-primary/20 font-mono text-xs px-2 py-0.5 whitespace-nowrap">
-                EST: ${material.estimated_cost.toLocaleString()}
-              </Badge>
-            </div>
-            <p className="leading-relaxed text-slate-600 mb-4 flex-1">{material.purpose}</p>
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-muted/20 p-2.5 rounded-md mt-auto">
-              <div className="text-muted-foreground">
-                <span className="font-bold text-slate-700 block mb-1">SUPPLIER</span> {material.supplier_hint}
-              </div>
-              <div className="text-muted-foreground">
-                <span className="font-bold text-slate-700 block mb-1">CATALOG</span> {material.catalog_number}
-              </div>
-            </div>
-          </a>
-        ))}
-      </div>
-      <SectionMeta section={plan.materials} />
-    </section>
   );
 }
 
@@ -266,40 +201,6 @@ function TimelineSection({ plan }: { plan: ExperimentPlan }) {
         ))}
       </div>
       <SectionMeta section={plan.timeline} className="mt-8" />
-    </section>
-  );
-}
-
-function ValidationSection({ plan }: { plan: ExperimentPlan }) {
-  return (
-    <section>
-      <div className="mb-4 flex items-center gap-2">
-        <TestTube2 className="h-5 w-5 text-primary" />
-        <h3 className="text-lg font-black tracking-tight">Validation</h3>
-      </div>
-      <div className="grid gap-4">
-        {plan.validation.content.map((item, i) => (
-          <div key={i} className="flex gap-4 rounded-xl border border-border/60 bg-white p-5 shadow-sm">
-            <div className="mt-0.5 text-emerald-500">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <div className="font-bold text-slate-900 text-base mb-1">{item.metric}</div>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-3">
-                <div className="flex-1 bg-emerald-50 text-emerald-900 border border-emerald-200 p-2.5 rounded-md text-sm">
-                  <span className="font-bold text-[10px] uppercase tracking-wider block mb-1 opacity-70">Target Threshold</span>
-                  {item.success_threshold}
-                </div>
-                <div className="flex-1 bg-slate-50 border border-border/40 p-2.5 rounded-md text-sm">
-                  <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">Measurement Method</span>
-                  <span className="font-mono text-xs">{item.measurement_method}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <SectionMeta section={plan.validation} />
     </section>
   );
 }
@@ -503,12 +404,10 @@ export function ExperimentPlanViewer({
           <PlanOverview plan={plan} />
           <PlanContextNav activeSection={activePlanSection || "protocol"} onChange={onActivePlanSectionChange || (() => {})} qc={qc} />
           <div className="rounded-xl border border-border/60 bg-white/40 p-4 shadow-sm">
-            {(activePlanSection || "protocol") === "protocol" ? <ProtocolSection plan={plan} /> : null}
+            {(activePlanSection || "protocol") === "protocol" ? <PlanOverview plan={plan} /> : null}
             {(activePlanSection || "protocol") === "literature" ? <LiteratureSection qc={qc} mock={mock} /> : null}
-            {(activePlanSection || "protocol") === "materials" ? <MaterialsSection plan={plan} /> : null}
             {(activePlanSection || "protocol") === "budget" ? <BudgetSection plan={plan} totalCost={totalCost} /> : null}
             {(activePlanSection || "protocol") === "timeline" ? <TimelineSection plan={plan} /> : null}
-            {(activePlanSection || "protocol") === "validation" ? <ValidationSection plan={plan} /> : null}
             {(activePlanSection || "protocol") === "risks" ? <RisksSection plan={plan} /> : null}
             {(activePlanSection || "protocol") === "sources" ? <SourcesSection plan={plan} /> : null}
           </div>

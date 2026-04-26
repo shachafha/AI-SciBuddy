@@ -135,9 +135,10 @@ def _source_summary(plan: ExperimentPlan) -> str:
 
 
 def _material_focus(plan: ExperimentPlan) -> str:
-    if not plan.materials.content:
+    material_items = [item for item in plan.budget.content if item.category.lower() in ("materials", "reagents", "reagents & assays", "equipment")]
+    if not material_items:
         return "required resources"
-    return ", ".join(item.item for item in plan.materials.content[:2])
+    return ", ".join(item.item for item in material_items[:2])
 
 
 def _timeline_focus(plan: ExperimentPlan) -> str:
@@ -147,9 +148,9 @@ def _timeline_focus(plan: ExperimentPlan) -> str:
 
 
 def _validation_focus(plan: ExperimentPlan) -> str:
-    if not plan.validation.content:
+    if not plan.risks_and_assumptions.content:
         return "validation targets"
-    return ", ".join(item.metric for item in plan.validation.content[:2])
+    return plan.risks_and_assumptions.content[0][:80]
 
 
 def _risk_focus(plan: ExperimentPlan) -> str:

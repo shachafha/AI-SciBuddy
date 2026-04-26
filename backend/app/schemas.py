@@ -194,11 +194,8 @@ class ExperimentPlan(StrictModel):
     title: str
     hypothesis: str
     executive_summary: GroundedSection[str]
-    protocol_summary: GroundedSection[list[str]]
-    materials: GroundedSection[list[MaterialItem]]
     budget: GroundedSection[list[BudgetItem]]
     timeline: GroundedSection[list[TimelineItem]]
-    validation: GroundedSection[list[ValidationItem]]
     risks_and_assumptions: GroundedSection[list[str]]
     safety_and_ethics_notes: GroundedSection[list[str]]
     lab_workflow: LabView | None = None

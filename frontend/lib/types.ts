@@ -156,11 +156,8 @@ export type ExperimentPlan = {
   title: string;
   hypothesis: string;
   executive_summary: GroundedSection<string>;
-  protocol_summary: GroundedSection<string[]>;
-  materials: GroundedSection<MaterialItem[]>;
   budget: GroundedSection<BudgetItem[]>;
   timeline: GroundedSection<TimelineItem[]>;
-  validation: GroundedSection<ValidationItem[]>;
   risks_and_assumptions: GroundedSection<string[]>;
   safety_and_ethics_notes: GroundedSection<string[]>;
   lab_workflow?: LabView | null;

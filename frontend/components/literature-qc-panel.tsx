@@ -246,7 +246,7 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
           Literature QC Results
         </div>
         <div className="flex items-center gap-2">
-          {demo ? <Badge className="border-amber-200 bg-amber-50 text-amber-900 font-mono text-xs">MOCK_DATA</Badge> : null}
+          
           <Badge className={`${signalStyles[qc.novelty_signal]} font-mono uppercase tracking-wider`}>{signalLabels[qc.novelty_signal]}</Badge>
         </div>
       </div>
@@ -345,7 +345,7 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge className={`font-mono text-[10px] uppercase tracking-wider border ${badgeClass}`}>{sourceCategoryLabel}</Badge>
                 <Badge className={`font-mono text-[10px] uppercase tracking-wider border ${matchQualityClass}`}>{matchQualityBadge}</Badge>
-                {ref.mock ? <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-mono text-[10px] uppercase tracking-wider">MOCK SEARCH RESULT</Badge> : null}
+                
               </div>
               <p className="mt-4 text-sm leading-relaxed text-slate-600 italic">"{ref.summary}"</p>
               
