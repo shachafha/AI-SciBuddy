@@ -468,7 +468,12 @@ export default function Home() {
 
       {!hasStarted ? (
         <div className="relative z-10 flex min-h-screen flex-col items-center justify-center py-12">
-          <h1 className="mb-4 text-4xl font-black tracking-tight text-slate-900 sm:text-6xl">AI SciBuddy</h1>
+          <div className="flex flex-col items-center gap-0 mb-4">
+            <div className="relative h-[115px] w-[115px] sm:h-[155px] sm:w-[155px] lg:h-[195px] lg:w-[195px] drop-shadow-[0_0_20px_rgba(20,150,180,0.15)] z-10">
+              <Image src="/logo.png" alt="AI SciBuddy teddy bear scientist logo" fill className="object-contain" priority />
+            </div>
+            <h1 className="-mt-2 sm:-mt-6 lg:-mt-8 text-4xl font-black tracking-tight text-slate-900 sm:text-6xl relative z-20">AI SciBuddy</h1>
+          </div>
           <p className="mb-8 max-w-2xl px-4 text-center text-lg leading-relaxed text-slate-600">
             A modern AI science workspace. Provide a hypothesis to trigger literature QC, automated planning, and structured scientific review.
           </p>
