@@ -1,4 +1,4 @@
-from typing import Generic, Literal, TypeVar, Any
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -240,18 +240,71 @@ class ChatAboutLiteratureResponse(StrictModel):
     suggested_hypothesis: str | None = None
     should_refresh_qc: bool = False
 
+
 class LabViewRegenerateRequest(StrictModel):
-    """Request body for POST /api/regenerate-from-lab-view.
-
-    The edited_lab_view is the canonical source of truth for this revision.
-    Provenance (AI-generated vs user-edited) is derived from node.state.version:
-      version == 1 → AI-generated (unchanged)
-      version  > 1 → user-edited
-    """
-
     hypothesis: str = Field(..., min_length=8)
     current_plan: ExperimentPlan
     edited_lab_view: LabView
     scientist_feedback: list[ScientistFeedback] = Field(default_factory=list)
-    # Optional free-text instructions from the user, e.g. "focus on budget cuts"
     user_notes: str | None = None
+
+
+ExecutionPlanStatus = Literal["draft", "in_progress", "completed", "archived"]
+ExecutionTaskStatus = Literal["not_started", "in_progress", "blocked", "done", "needs_review"]
+ExecutionTaskSection = Literal[
+    "Preparation",
+    "Design Review",
+    "Materials and Logistics",
+    "Execution Tracking",
+    "Validation and Analysis",
+    "Safety and Compliance",
+    "Final Review",
+]
+
+
+class ExecutionTask(StrictModel):
+    task_id: str
+    section: ExecutionTaskSection
+    title: str
+    description: str
+    status: ExecutionTaskStatus = "not_started"
+    assignee: str | None = None
+    notes: str = ""
+    updated_at: str
+
+
+class CreateExecutionPlanRequest(StrictModel):
+    source_plan: ExperimentPlan
+    creator_email: str | None = None
+    executor_emails: list[str] = Field(default_factory=list)
+
+
+class ExecutionPlan(StrictModel):
+    plan_id: str
+    title: str
+    hypothesis: str
+    creator_email: str | None = None
+    executor_emails: list[str] = Field(default_factory=list)
+    status: ExecutionPlanStatus = "draft"
+    tasks: dict[ExecutionTaskSection, list[ExecutionTask]]
+    source_plan_summary: str
+    safety_notice: str
+    created_at: str
+    updated_at: str
+
+
+class UpdateTaskRequest(StrictModel):
+    status: ExecutionTaskStatus | None = None
+    assignee: str | None = None
+    notes: str | None = None
+
+
+class InviteExecutorsRequest(StrictModel):
+    executor_emails: list[str] = Field(..., min_length=1)
+
+
+class InviteExecutorsResponse(StrictModel):
+    invited_emails: list[str]
+    share_url: str
+    email_subject: str
+    email_body: str

@@ -1,10 +1,8 @@
 import json
-import os
 from json import JSONDecodeError
 from typing import Any
 
-import httpx
-
+from .llm_client import databricks_prompt
 from .schemas import ExperimentPlan, LabEdge, LabNode, LabNodeMeta, LabNodeState, LabView
 
 
@@ -71,9 +69,6 @@ def _extract_json(text: str) -> dict[str, Any]:
 
 
 def generate_lab_view(plan: ExperimentPlan) -> LabView:
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-    model = os.getenv("OLLAMA_MODEL", "gemma3")
-    
     prompt = f"""
 You are AI SciBuddy, generating a visual Directed Acyclic Graph (DAG) for an experiment plan.
 
@@ -82,7 +77,7 @@ Convert the provided ExperimentPlan into a LabView graph structure with nodes an
 This is a high-level conceptual graph, not an operational wet-lab protocol. Do not output dangerous procedural details.
 
 ExperimentPlan context:
-{plan.model_dump_json(include={{"hypothesis", "protocol_summary", "materials", "validation"}})}
+{plan.model_dump_json(include={"hypothesis", "protocol_summary", "materials", "validation"})}
 
 Output exactly one valid JSON object matching this schema:
 {{
@@ -129,19 +124,9 @@ Do not include markdown or formatting, just raw JSON.
 """.strip()
 
     try:
-        response = httpx.post(
-            f"{base_url}/api/generate",
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {"temperature": 0.1},
-            },
-            timeout=45,
-        )
-        response.raise_for_status()
-        raw_text = response.json().get("response", "")
+        raw_text = databricks_prompt(prompt, temperature=0.1, timeout=45)
+        if raw_text is None:
+            raise RuntimeError("Databricks LLM is not configured or unavailable.")
         return LabView.model_validate(_extract_json(raw_text))
     except Exception as e:
         print(f"Failed to generate lab view: {e}")

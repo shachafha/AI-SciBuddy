@@ -10,7 +10,7 @@ Turning a high-level scientific hypothesis into a structured, PI-review-ready ex
 The application is built with a modern, intentional stack designed for speed and reliability:
 *   **Frontend**: Next.js (React 19), styled with Tailwind CSS, providing a polished and responsive UI.
 *   **Backend**: FastAPI (Python), serving robust endpoints for plan generation and feedback management.
-*   **AI Models**: Uses local Ollama (Gemma 3) for deterministic, structured plan generation without relying on expensive cloud LLMs.
+*   **AI Models**: Uses Databricks AI Gateway with Qwen for structured plan generation, with deterministic local fallbacks for demo resilience.
 
 ## Agentic Skills & Integrations
 AI SciBuddy is supercharged with a suite of external agentic skills to handle UI/UX design, web scraping, and multi-agent orchestration seamlessly:
@@ -37,11 +37,14 @@ Copy `.env.example` to `.env` at the repo root or export the variables in your s
 
 ```bash
 TAVILY_API_KEY=your_tavily_key
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=gemma3
+DATABRICKS_HOST=https://dbc-xxxxxxxx-xxxx.cloud.databricks.com
+DATABRICKS_TOKEN=your_databricks_token
+DATABRICKS_BASE_URL=https://7474660200307946.ai-gateway.cloud.databricks.com/mlflow/v1
+DATABRICKS_MODEL=databricks-qwen3-next-80b-a3b-instruct
+DATABRICKS_EXECUTION_STORE_PATH=/Shared/AI-SciBuddy/execution_plans.json
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
-*(Note: If `TAVILY_API_KEY` or Ollama is missing, the app gracefully falls back to deterministic mock data so the demo always works!)*
+*(Note: If `TAVILY_API_KEY` or Databricks is missing, the app gracefully falls back to deterministic mock data so the demo always works!)*
 
 ### Backend Setup
 ```bash
@@ -67,6 +70,33 @@ Open `http://localhost:3000` in your browser.
 4. **Review Details**: Explore the generated budget, timeline, materials, and source trace.
 5. **Scientist Correction**: Use the review panel to correct an issue (e.g., timeline delays).
 6. **Regenerate**: Watch the plan update, highlighting the changed timeline tab and appending the expert note.
+7. **Launch Execution Plan**: Create a live execution workspace from the reviewed plan and hand it off by link.
+
+## Execution Workspace
+After a plan has been generated or regenerated with scientist feedback, use **Launch Execution Plan** in the main dashboard to create a live coordination workspace.
+
+The execution workspace lets a scientist hand off a reviewed plan to an executor and track:
+* task status across preparation, review, logistics, execution tracking, validation, safety, and final review
+* blocked work and items that need scientist or PI review
+* executor notes, invite links, and shareable demo handoff messages
+
+To share a live plan:
+1. Generate or regenerate a plan in the main app.
+2. Click **Launch Execution Plan**.
+3. Open the created workspace at `/plan/{plan_id}`.
+4. Use the **Invite Executors** panel to generate a share link, copy the invite message, or open a prefilled `mailto:` draft.
+
+The app still runs locally with:
+
+```bash
+cd backend
+uvicorn app.main:app --reload --port 8000
+```
+
+```bash
+cd frontend
+npm run dev
+```
 
 ## Limitations and Safety Note
 **AI SciBuddy generates high-level planning drafts for review, NOT operational wet-lab instructions.**

@@ -1,6 +1,19 @@
-import type { ChatAboutLiteratureRequest, ChatAboutLiteratureResponse, ExperimentPlan, FeedbackRecord, HypothesisInput, LabView, LiteratureQC, ScientistFeedback } from "./types";
+import type {
+  ChatAboutLiteratureRequest,
+  ChatAboutLiteratureResponse,
+  ExecutionPlan,
+  ExperimentPlan,
+  FeedbackRecord,
+  HypothesisInput,
+  InviteExecutorsPayload,
+  InviteExecutorsResponse,
+  LabView,
+  LiteratureQC,
+  ScientistFeedback,
+  UpdateExecutionTaskPayload,
+} from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -47,7 +60,7 @@ export function getFeedback() {
 export function regenerateWithFeedback(
   hypothesis: string,
   currentPlan: ExperimentPlan,
-  feedback: ScientistFeedback
+  feedback: ScientistFeedback,
 ) {
   return request<ExperimentPlan>("/api/regenerate-with-feedback", {
     method: "POST",
@@ -70,11 +83,6 @@ export interface LabViewRegenOptions {
   userNotes?: string;
 }
 
-/**
- * POST /api/regenerate-from-lab-view
- * Regenerates an ExperimentPlan from the scientist's edited Lab View graph.
- * Provenance (AI-generated vs user-edited nodes) is enforced server-side.
- */
 export function regenerateFromLabView(opts: LabViewRegenOptions) {
   return request<ExperimentPlan>("/api/regenerate-from-lab-view", {
     method: "POST",
@@ -85,5 +93,30 @@ export function regenerateFromLabView(opts: LabViewRegenOptions) {
       scientist_feedback: opts.scientistFeedback ?? [],
       user_notes: opts.userNotes ?? null,
     }),
+  });
+}
+
+export function launchExecutionPlan(sourcePlan: ExperimentPlan) {
+  return request<ExecutionPlan>("/api/execution-plans", {
+    method: "POST",
+    body: JSON.stringify({ source_plan: sourcePlan }),
+  });
+}
+
+export function getExecutionPlan(planId: string) {
+  return request<ExecutionPlan>(`/api/execution-plans/${planId}`);
+}
+
+export function updateExecutionTask(planId: string, taskId: string, payload: UpdateExecutionTaskPayload) {
+  return request<ExecutionPlan>(`/api/execution-plans/${planId}/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function inviteExecutors(planId: string, payload: InviteExecutorsPayload) {
+  return request<InviteExecutorsResponse>(`/api/execution-plans/${planId}/invite`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }

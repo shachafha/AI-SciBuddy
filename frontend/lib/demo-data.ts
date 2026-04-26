@@ -1,4 +1,4 @@
-import type { ExperimentPlan, LabView, LiteratureQC } from "./types";
+import type { ExecutionPlan, ExecutionTask, ExecutionTaskSection, ExperimentPlan, LabView, LiteratureQC } from "./types";
 
 export const sampleHypotheses = [
   {
@@ -513,4 +513,76 @@ export function demoExperimentPlan(hypothesis: string, qc: LiteratureQC | null):
   };
 }
 
+function executionTask(
+  task_id: string,
+  section: ExecutionTaskSection,
+  title: string,
+  description: string,
+  status: ExecutionTask["status"] = "not_started",
+  assignee?: string,
+): ExecutionTask {
+  return {
+    task_id,
+    section,
+    title,
+    description,
+    status,
+    assignee: assignee ?? null,
+    notes: "",
+    updated_at: new Date().toISOString(),
+  };
+}
 
+export function demoExecutionPlan(planId: string, hypothesis = sampleHypotheses[0].hypothesis): ExecutionPlan {
+  return {
+    plan_id: planId,
+    title: "Execution Plan: Demo Hand-off Workspace",
+    hypothesis,
+    creator_email: "pi-demo@scibuddy.local",
+    executor_emails: ["executor-demo@scibuddy.local", "reviewer-demo@scibuddy.local"],
+    status: "in_progress",
+    source_plan_summary:
+      "Demo workspace fallback: this plan shows how a reviewed scientific plan can be handed off to an executor, tracked across milestones, and returned for scientist review.",
+    safety_notice:
+      "This workspace is for planning and coordination only. Do not begin regulated, hazardous, clinical, animal, human-subject, gene-editing, or chemical-risk work without appropriate PI and institutional approval.",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    tasks: {
+      Preparation: [
+        executionTask("prep-1", "Preparation", "Confirm PI approval", "Done when the responsible scientist or PI has approved this plan for coordination use.", "needs_review", "Dr. Avery"),
+        executionTask("prep-2", "Preparation", "Assign execution roles", "Done when an owner, executor, and reviewer are named in the workspace.", "done", "Mina"),
+        executionTask("prep-3", "Preparation", "Open the execution log", "Done when the team has a shared place to record updates, deviations, and observations.", "done", "Mina"),
+      ],
+      "Design Review": [
+        executionTask("design-1", "Design Review", "Confirm study objective", "Done when the executor can restate the hypothesis and intended outcome in one short summary.", "done", "Mina"),
+        executionTask("design-2", "Design Review", "Confirm controls and validation criteria", "Done when the team has agreed how controls and success checks will be judged.", "needs_review", "Dr. Avery"),
+        executionTask("design-3", "Design Review", "Flag open assumptions", "Done when unresolved assumptions or scope questions are logged for review.", "in_progress", "Mina"),
+      ],
+      "Materials and Logistics": [
+        executionTask("materials-1", "Materials and Logistics", "Confirm materials availability", "Done when required resources are confirmed available or sourcing is assigned.", "done", "Leo"),
+        executionTask("materials-2", "Materials and Logistics", "Confirm logistics and timing", "Done when scheduling and dependencies are clear for planned milestones.", "in_progress", "Leo"),
+        executionTask("materials-3", "Materials and Logistics", "Confirm budget coverage", "Done when funding, purchasing, or internal approvals are sufficient for the planned work.", "not_started"),
+      ],
+      "Execution Tracking": [
+        executionTask("tracking-1", "Execution Tracking", "Track milestone progress", "Done when current status is recorded for each major milestone in the workspace.", "in_progress", "Mina"),
+        executionTask("tracking-2", "Execution Tracking", "Record deviations", "Done when any scope, timing, or resource deviations are logged with date and owner.", "blocked", "Mina"),
+        executionTask("tracking-3", "Execution Tracking", "Upload observations", "Done when non-procedural observations, outputs, or notes are captured for the team.", "not_started"),
+      ],
+      "Validation and Analysis": [
+        executionTask("validation-1", "Validation and Analysis", "Confirm validation plan", "Done when validation checks are defined for the reviewed plan.", "done", "Reviewer"),
+        executionTask("validation-2", "Validation and Analysis", "Review analysis readiness", "Done when analysis owners, required outputs, and review expectations are documented.", "in_progress", "Reviewer"),
+        executionTask("validation-3", "Validation and Analysis", "Capture review-ready evidence", "Done when observations and supporting outputs are organized for scientist review.", "not_started"),
+      ],
+      "Safety and Compliance": [
+        executionTask("safety-1", "Safety and Compliance", "Review safety requirements", "Done when the team has reviewed safety considerations and escalation needs.", "done", "Safety Lead"),
+        executionTask("safety-2", "Safety and Compliance", "Confirm required approvals", "Done when any PI, institutional, or program approvals are identified and tracked before work proceeds.", "needs_review", "Dr. Avery"),
+        executionTask("safety-3", "Safety and Compliance", "Escalate regulated work", "Done when regulated or hazardous work has been escalated for approval.", "not_started"),
+      ],
+      "Final Review": [
+        executionTask("final-1", "Final Review", "Request PI review", "Done when the scientist or PI has been asked to review the execution record and outcomes.", "needs_review", "Dr. Avery"),
+        executionTask("final-2", "Final Review", "Confirm completion notes", "Done when final notes, unresolved questions, and next steps are documented.", "not_started"),
+        executionTask("final-3", "Final Review", "Close the workspace", "Done when the plan is ready to archive or continue with a new review cycle.", "not_started"),
+      ],
+    },
+  };
+}

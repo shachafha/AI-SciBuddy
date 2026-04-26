@@ -1,10 +1,9 @@
 import json
-import os
+import logging
 from json import JSONDecodeError
 from typing import Any
 
-import httpx
-
+from .llm_client import databricks_prompt
 from .schemas import (
     ExperimentPlan,
     LiteratureQC,
@@ -19,6 +18,8 @@ from .tavily_client import (
     search_validation_methods,
 )
 from .lab_view_generator import generate_lab_view
+
+logger = logging.getLogger(__name__)
 
 
 def _as_evidence(result: TavilySearchResult | TavilyEvidence) -> TavilyEvidence:
@@ -307,26 +308,15 @@ def _evidence_context(evidence: list[TavilyEvidence]) -> list[dict[str, Any]]:
     ]
 
 
-def _ollama_generate(prompt: str) -> ExperimentPlan | None:
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-    model = os.getenv("OLLAMA_MODEL", "gemma3")
-
+def _llm_generate(prompt: str) -> ExperimentPlan | None:
     try:
-        response = httpx.post(
-            f"{base_url}/api/generate",
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {"temperature": 0.2},
-            },
-            timeout=75,
-        )
-        response.raise_for_status()
-        raw_text = response.json().get("response", "")
+        raw_text = databricks_prompt(prompt, temperature=0.2, timeout=75)
+        if raw_text is None:
+            logger.info("Plan generation LLM unavailable; using deterministic fallback plan.")
+            return None
         return ExperimentPlan.model_validate(_extract_json(raw_text))
-    except Exception:
+    except Exception as exc:
+        logger.warning("Plan generation LLM output could not be validated; using deterministic fallback plan: %s", exc)
         return None
 
 
@@ -419,7 +409,7 @@ Requirements:
 {_plan_schema_prompt()}
 """.strip()
 
-    plan = _ollama_generate(prompt)
+    plan = _llm_generate(prompt)
     if plan is None:
         plan = _mock_plan(hypothesis, qc, evidence, constraints, feedback)
     else:
@@ -450,7 +440,7 @@ List the section name that was modified in updated_sections.
 {_plan_schema_prompt()}
 """.strip()
 
-    plan = _ollama_generate(prompt)
+    plan = _llm_generate(prompt)
     if plan is not None:
         plan = _ground_plan(plan, None, [])
         plan.lab_workflow = generate_lab_view(plan)
@@ -476,13 +466,13 @@ def regenerate_plan_from_lab_view(request: "LabViewRegenerateRequest") -> Experi
     Provenance is derived server-side from node.state.version (not trusted from
     the frontend) to ensure the safety rules cannot be bypassed by crafted payloads.
 
-    Falls back to a structured mock if Ollama is unavailable.
+    Falls back to a structured mock if Databricks is unavailable.
     """
     from .lab_regen_prompt import build_lab_regen_prompt, diff_summary
     from .schemas import LabViewRegenerateRequest  # local import avoids circular
 
     prompt = build_lab_regen_prompt(request, _plan_schema_prompt())
-    plan = _ollama_generate(prompt)
+    plan = _llm_generate(prompt)
 
     if plan is not None:
         plan = _ground_plan(plan, None, [s for s in request.current_plan.source_trace])

@@ -23,10 +23,12 @@ export function ScientistReviewPanel({
   hypothesis,
   plan,
   onPlanUpdated,
+  onFeedbackApplied,
 }: {
   hypothesis: string;
   plan: ExperimentPlan | null;
   onPlanUpdated: (plan: ExperimentPlan) => void;
+  onFeedbackApplied?: (feedback: ScientistFeedback) => void;
 }) {
   const [section, setSection] = useState("validation");
   const [rating, setRating] = useState(4);
@@ -68,8 +70,10 @@ export function ScientistReviewPanel({
     if (!plan || !correction.trim()) return;
     setBusy(true);
     try {
-      const response = await regenerateWithFeedback(hypothesis, plan, buildFeedback());
+      const feedback = buildFeedback();
+      const response = await regenerateWithFeedback(hypothesis, plan, feedback);
       onPlanUpdated(response);
+      onFeedbackApplied?.(feedback);
     } finally {
       setBusy(false);
     }

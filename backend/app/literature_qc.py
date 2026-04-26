@@ -1,10 +1,8 @@
 import json
-import os
 from json import JSONDecodeError
 from typing import Any, Literal
 
-import httpx
-
+from .llm_client import databricks_prompt
 from .schemas import LiteratureQC, LiteratureReference, ParsedHypothesis, ReferenceRubricScore, TavilyEvidence
 from .tavily_client import TavilySearchResult, search_all_targets
 
@@ -126,8 +124,6 @@ def _heuristic_classification(results: list[TavilySearchResult], parsed: ParsedH
 
 
 def _llm_classification(hypothesis: str, parsed_hypothesis: ParsedHypothesis, results: list[TavilySearchResult]) -> Classification | None:
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-    model = os.getenv("OLLAMA_MODEL", "gemma3")
     compact_results = [
         {
             "title": result["title"],
@@ -192,19 +188,9 @@ Return only JSON:
 """.strip()
 
     try:
-        response = httpx.post(
-            f"{base_url}/api/generate",
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {"temperature": 0.1},
-            },
-            timeout=8,
-        )
-        response.raise_for_status()
-        raw = response.json().get("response", "")
+        raw = databricks_prompt(prompt, temperature=0.1, timeout=8)
+        if raw is None:
+            return None
         parsed = _extract_json(raw)
         signal = parsed.get("novelty_signal")
         if signal not in {"not_found", "similar_work_exists", "exact_match_found"}:
@@ -244,6 +230,16 @@ def assess_literature_qc(
     signal, confidence, summary, reference_scores = classified
     if mock and "mock" not in summary.lower():
         summary = f"{summary} Mock Tavily data is being used because live search is unavailable."
+
+    scored_urls = {score.url for score in reference_scores}
+    scored_titles = {score.title for score in reference_scores}
+
+    for result in _dedupe_results(results):
+        if result["url"] not in scored_urls and result["title"] not in scored_titles:
+            fallback_score = _heuristic_rubric([result], parsed)[0]
+            reference_scores.append(fallback_score)
+            scored_urls.add(fallback_score.url)
+            scored_titles.add(fallback_score.title)
 
     return LiteratureQC(
         novelty_signal=signal,

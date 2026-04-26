@@ -1,10 +1,8 @@
 import json
-import os
 from json import JSONDecodeError
 from typing import Any
 
-import httpx
-
+from .llm_client import databricks_prompt
 from .schemas import (
     ChatAboutLiteratureRequest,
     ChatAboutLiteratureResponse,
@@ -31,24 +29,11 @@ def _format_conversation(messages: list[ChatMessage]) -> str:
     return "\n\n".join(formatted)
 
 
-def _ollama_chat_generate(prompt: str) -> ChatAboutLiteratureResponse | None:
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-    model = os.getenv("OLLAMA_MODEL", "gemma3")
-
+def _llm_chat_generate(prompt: str) -> ChatAboutLiteratureResponse | None:
     try:
-        response = httpx.post(
-            f"{base_url}/api/generate",
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {"temperature": 0.3},
-            },
-            timeout=30,
-        )
-        response.raise_for_status()
-        raw_text = response.json().get("response", "")
+        raw_text = databricks_prompt(prompt, temperature=0.3, timeout=30)
+        if raw_text is None:
+            return None
         parsed = _extract_json(raw_text)
         return ChatAboutLiteratureResponse.model_validate(parsed)
     except Exception:
@@ -119,7 +104,7 @@ You must return EXACTLY one valid JSON object matching this schema:
 }}
 """.strip()
 
-    response = _ollama_chat_generate(prompt)
+    response = _llm_chat_generate(prompt)
     if response is None:
         return _deterministic_fallback(request)
         
