@@ -260,3 +260,10 @@ export type InviteExecutorsResponse = {
   email_subject: string;
   email_body: string;
 };
+
+export type ChatRegenerateRequest = {
+  hypothesis: string;
+  current_plan: ExperimentPlan;
+  messages: ChatMessage[];
+  active_section?: string | null;
+};

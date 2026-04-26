@@ -291,6 +291,11 @@ Return one valid JSON object with exactly this shape:
 }
 Do not include markdown. Do not include temperatures, doses, timings, recipes, exact procedural parameters, or instructions that would let an untrained person run a biological or chemical experiment.
 Never invent catalog numbers. If a catalog number is not explicitly present in retrieved sources, set catalog_number to "not found in retrieved sources".
+
+CRITICAL JSON RULES:
+- Your output must be STRICTLY VALID JSON.
+- Do NOT include trailing commas.
+- Do NOT output markdown code blocks. Return the raw JSON object starting with `{` and ending with `}`.
 """.strip()
 
 
@@ -541,4 +546,72 @@ def regenerate_plan_from_lab_view(request: "LabViewRegenerateRequest") -> Experi
     )
 
     revised.updated_sections = list(set(revised.updated_sections + ["risks_and_assumptions", "confidence_notes"]))
+    return revised
+
+
+def regenerate_plan_from_chat(payload: "ChatRegenerateRequest") -> ExperimentPlan:
+    from .schemas import ChatRegenerateRequest
+
+    chat_history_str = "\n".join([f"{msg.role.upper()}: {msg.content}" for msg in payload.messages])
+
+    prompt = f"""
+CRITICAL INSTRUCTION: You MUST revise this PI-review planning draft to incorporate the changes discussed in the Conversation History between the user and the agent.
+You are NOT generating a new plan from scratch. You are editing the Current plan based on the user's requested revisions in the chat.
+If the user requested a change to the budget, you MUST update the budget section. If they requested new materials, update the materials section. If they asked to add a lab view block, adjust the protocol or materials accordingly.
+
+Preserve source grounding and safety limits.
+
+Hypothesis:
+{payload.hypothesis}
+
+Current plan:
+{payload.current_plan.model_dump_json()}
+
+Conversation History:
+{chat_history_str}
+
+Active Section Context:
+{payload.active_section or "None provided - apply globally if applicable"}
+
+Do not add operational wet-lab detail. Keep all major claims tied to existing source_trace URLs.
+Add a note saying "Updated based on chat conversation" to confidence_notes.
+Include a new entry in source_trace with title="Chat Revision", url="#chat", and source="User Conversation".
+List the section name(s) that were modified in updated_sections.
+
+{_plan_schema_prompt()}
+""".strip()
+
+    plan = _llm_generate(prompt)
+    if plan is not None:
+        plan = _ground_plan(plan, None, [])
+        plan.lab_workflow = generate_lab_view(plan)
+        
+        # Log to Review Log
+        from .feedback_store import add_feedback
+        from .schemas import ScientistFeedback
+        
+        user_msgs = [msg for msg in payload.messages if msg.role == "user"]
+        last_request = user_msgs[-1].content if user_msgs else "Chat revision"
+        
+        add_feedback(ScientistFeedback(
+            plan_id="chat_revision",
+            section=", ".join(plan.updated_sections) if plan.updated_sections else "General",
+            rating=5,
+            correction=f"Agent Chat Revision Applied:\n{last_request}",
+            tags=["chat-revision", "agentic"],
+            hypothesis=payload.hypothesis
+        ))
+        
+        return plan
+
+    # Fallback if LLM fails
+    revised = payload.current_plan.model_copy(deep=True)
+    revised.confidence_notes.content = f"{revised.confidence_notes.content} Updated based on chat conversation in demo mode."
+    revised.risks_and_assumptions.content.append("Chat-based revision applied in demo mode.")
+    
+    revised.source_trace.append(SourceCitation(
+        title="Chat Revision",
+        url="#chat",
+        source="User Conversation"
+    ))
     return revised

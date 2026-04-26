@@ -7,7 +7,9 @@ import { ExperimentPlanViewer } from "@/components/experiment-plan-viewer";
 import { HypothesisSummaryCard } from "@/components/hypothesis-summary-card";
 import { RelatedWorkSection } from "@/components/related-work-section";
 import { AgentWorkspacePanel } from "@/components/agent-workspace-panel";
-import { chatAboutLiterature, generatePlan, launchExecutionPlan, runLiteratureQC } from "@/lib/api";
+import { ChatComposer } from "@/components/chat-composer";
+import { ChatMessageList } from "@/components/chat-message-list";
+import { chatAboutLiterature, generatePlan, launchExecutionPlan, runLiteratureQC, regenerateFromChat } from "@/lib/api";
 import { demoExperimentPlan, demoLiteratureQC } from "@/lib/demo-data";
 import type { ChatMessage, ExecutionPlan, ExperimentPlan, LiteratureQC, ScientistFeedback, LabNode } from "@/lib/types";
 import { PlanContextSection } from "@/components/experiment-plan-viewer";
@@ -89,36 +91,37 @@ function TopAppNav({
         {/* Two-Phase Nav */}
         <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-xl border border-border/40 bg-slate-50/70 p-1" aria-label="AI SciBuddy navigation">
           
-          {/* Phase 1: Research */}
-          {prePlanNav.map((item) => {
-            const Icon = navIcon(item.id);
-            const isActive = activeDestination === item.id;
-            const isDimmed = workflowPhase === "post_plan" && !isActive;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onChange(item.id)}
-                aria-current={isActive ? "page" : undefined}
-                className={[
-                  "flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 sm:px-4",
-                  isActive
-                    ? "bg-white text-primary shadow-sm ring-1 ring-border/60"
-                    : isDimmed
-                    ? "text-slate-400 hover:bg-white/50 hover:text-slate-600"
-                    : "text-slate-600 hover:bg-white/70 hover:text-slate-900",
-                ].join(" ")}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </button>
-            );
-          })}
+          {/* Phase 1: Research (Only shown pre-plan) */}
+          {workflowPhase === "pre_plan" && (
+            <>
+              {prePlanNav.map((item) => {
+                const Icon = navIcon(item.id);
+                const isActive = activeDestination === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onChange(item.id)}
+                    aria-current={isActive ? "page" : undefined}
+                    className={[
+                      "flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 sm:px-4",
+                      isActive
+                        ? "bg-white text-primary shadow-sm ring-1 ring-border/60"
+                        : "text-slate-600 hover:bg-white/70 hover:text-slate-900",
+                    ].join(" ")}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
 
-          {/* Phase Divider */}
-          <div className="mx-1 h-6 w-px shrink-0 bg-border/60" aria-hidden />
-          <div className="shrink-0 text-[8px] font-bold uppercase tracking-widest text-slate-300 px-0.5 hidden sm:block">Plan</div>
-          <div className="mx-1 h-6 w-px shrink-0 bg-border/60 hidden sm:block" aria-hidden />
+              {/* Phase Divider */}
+              <div className="mx-1 h-6 w-px shrink-0 bg-border/60" aria-hidden />
+              <div className="shrink-0 text-[8px] font-bold uppercase tracking-widest text-slate-300 px-0.5 hidden sm:block">Plan</div>
+              <div className="mx-1 h-6 w-px shrink-0 bg-border/60 hidden sm:block" aria-hidden />
+            </>
+          )}
 
           {/* Phase 2: Plan Workspace */}
           {postPlanNav.map((item) => {
@@ -333,6 +336,34 @@ export default function Home() {
     }
   }
 
+  async function handleRegenerateFromChat() {
+    if (!plan || planChat.length === 0) return;
+    setBusy("plan");
+    try {
+      const response = await regenerateFromChat({
+        hypothesis,
+        current_plan: plan,
+        messages: planChat,
+        active_section: activePlanSection,
+      });
+      setPlan(response);
+      setDemoMode(response.confidence_notes.content.toLowerCase().includes("demo"));
+      setExecutionPlan(null);
+      // Let the user know the chat context was applied
+      setPlanChat((prev) => [
+        ...prev,
+        { role: "assistant", content: "I've regenerated the plan based on our conversation. The updated plan is now loaded." }
+      ]);
+    } catch {
+      setPlanChat((prev) => [
+        ...prev,
+        { role: "assistant", content: "Failed to regenerate the plan. Please try again or use manual feedback." }
+      ]);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   function dismissSuggestedHypothesis() {
     setSuggestedHypothesis(null);
   }
@@ -524,13 +555,24 @@ export default function Home() {
                     onDismissSuggested={dismissSuggestedHypothesis}
                   />
 
-                  <div className="mt-8 text-center bg-white/50 backdrop-blur-sm border border-border/40 rounded-xl p-8 shadow-sm">
-                    <BrainCircuit className="h-10 w-10 text-primary/30 mx-auto mb-4" />
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">Agent Workspace Active</h3>
-                    <p className="text-slate-500 max-w-md mx-auto text-sm leading-relaxed">
-                      Use the panel on the right to chat with the AI, review literature, apply expert feedback, and regenerate your experiment plans contextually.
-                    </p>
-                  </div>
+                  <Card className="p-4 bg-white/70 shadow-soft border-border/60">
+                    <div className="h-[400px] flex flex-col">
+                      <div className="flex-1 overflow-y-auto mb-4 custom-scrollbar">
+                        <ChatMessageList
+                          messages={overviewChat}
+                          isTyping={busy === "chat"}
+                          onPromptSelect={(prompt) => handleSendMessage(prompt)}
+                        />
+                      </div>
+                      <div className="shrink-0 border-t border-border/40 pt-3">
+                        <ChatComposer
+                          onSend={handleSendMessage}
+                          disabled={busy === "chat" || busy === "qc" || busy === "plan"}
+                          placeholder={hypothesis ? "Ask a follow up or tell me to refine the hypothesis..." : "Enter your scientific hypothesis here..."}
+                        />
+                      </div>
+                    </div>
+                  </Card>
                 </div>
               )}
 
@@ -681,29 +723,32 @@ export default function Home() {
               )}
             </div>
 
-            {/* Right Side: Persistent Agent Workspace Panel */}
-            <div className="flex-shrink-0 relative z-20 h-full rounded-2xl overflow-hidden border border-border/60 shadow-xl hidden lg:block">
-              <AgentWorkspacePanel
-                hypothesis={hypothesis}
-                plan={plan}
-                qc={qc}
-                chatMessages={activeChatMessages}
-                chatContext={chatContext}
-                busy={busy}
-                onSendMessage={chatContext === "plan" ? handlePlanMessage : handleSendMessage}
-                onPlanUpdated={(updated) => {
-                  setPlan(updated);
-                  setDemoMode(updated.confidence_notes.content.toLowerCase().includes("demo"));
-                }}
-                onFeedbackApplied={(feedback) => {
-                  setAppliedFeedback(feedback);
-                  setExecutionPlan(null);
-                }}
-                activeDestination={activeDestination}
-                activePlanSection={activePlanSection}
-                selectedLabNode={selectedLabNode}
-              />
-            </div>
+            {/* Right Side: Persistent Agent Workspace Panel (Only Post-Plan) */}
+            {workflowPhase === "post_plan" && (
+              <div className="flex-shrink-0 relative z-20 h-full rounded-2xl overflow-hidden border border-border/60 shadow-xl hidden lg:block">
+                <AgentWorkspacePanel
+                  hypothesis={hypothesis}
+                  plan={plan}
+                  qc={qc}
+                  chatMessages={activeChatMessages}
+                  chatContext={chatContext}
+                  busy={busy}
+                  onSendMessage={chatContext === "plan" ? handlePlanMessage : handleSendMessage}
+                  onRegeneratePlan={chatContext === "plan" ? handleRegenerateFromChat : undefined}
+                  onPlanUpdated={(updated) => {
+                    setPlan(updated);
+                    setDemoMode(updated.confidence_notes.content.toLowerCase().includes("demo"));
+                  }}
+                  onFeedbackApplied={(feedback) => {
+                    setAppliedFeedback(feedback);
+                    setExecutionPlan(null);
+                  }}
+                  activeDestination={activeDestination}
+                  activePlanSection={activePlanSection}
+                  selectedLabNode={selectedLabNode}
+                />
+              </div>
+            )}
 
           </div>
         </div>

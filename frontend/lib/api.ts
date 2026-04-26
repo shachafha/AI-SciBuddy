@@ -11,6 +11,7 @@ import type {
   LiteratureQC,
   ScientistFeedback,
   UpdateExecutionTaskPayload,
+  ChatRegenerateRequest,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
@@ -70,6 +71,13 @@ export function regenerateWithFeedback(
 
 export function chatAboutLiterature(payload: ChatAboutLiteratureRequest) {
   return request<ChatAboutLiteratureResponse>("/api/chat-literature", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function regenerateFromChat(payload: ChatRegenerateRequest) {
+  return request<ExperimentPlan>("/api/regenerate-from-chat", {
     method: "POST",
     body: JSON.stringify(payload),
   });

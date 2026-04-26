@@ -17,7 +17,7 @@ from .execution_store import (
 )
 from .feedback_store import add_feedback, list_feedback
 from .literature_qc import assess_literature_qc
-from .plan_generator import generate_plan, regenerate_plan_from_lab_view, regenerate_plan_with_feedback
+from .plan_generator import generate_plan, regenerate_plan_from_lab_view, regenerate_plan_with_feedback, regenerate_plan_from_chat
 from .schemas import (
     ChatAboutLiteratureRequest,
     ChatAboutLiteratureResponse,
@@ -34,6 +34,7 @@ from .schemas import (
     RegenerateRequest,
     ScientistFeedback,
     UpdateTaskRequest,
+    ChatRegenerateRequest,
 )
 
 load_dotenv()
@@ -97,6 +98,11 @@ def get_feedback() -> list[FeedbackRecord]:
 @app.post("/api/regenerate-with-feedback", response_model=ExperimentPlan)
 def regenerate(payload: RegenerateRequest) -> ExperimentPlan:
     return regenerate_plan_with_feedback(payload.hypothesis, payload.current_plan, payload.feedback)
+
+
+@app.post("/api/regenerate-from-chat", response_model=ExperimentPlan)
+def regenerate_from_chat(payload: ChatRegenerateRequest) -> ExperimentPlan:
+    return regenerate_plan_from_chat(payload)
 
 
 @app.post("/api/chat-literature", response_model=ChatAboutLiteratureResponse)

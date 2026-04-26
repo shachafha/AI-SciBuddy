@@ -28,6 +28,7 @@ export function AgentWorkspacePanel({
   busy,
   onSendMessage,
   onPlanUpdated,
+  onRegeneratePlan,
   onFeedbackApplied,
   activeDestination,
   activePlanSection,
@@ -41,6 +42,7 @@ export function AgentWorkspacePanel({
   busy: "qc" | "chat" | "plan" | "launch" | "both" | null;
   onSendMessage: (msg: string) => void;
   onPlanUpdated: (plan: ExperimentPlan) => void;
+  onRegeneratePlan?: () => void;
   onFeedbackApplied?: (feedback: ScientistFeedback) => void;
   activeDestination?: string;
   activePlanSection?: string;
@@ -206,6 +208,20 @@ export function AgentWorkspacePanel({
               </button>
             ))}
           </div>
+
+          {/* Regenerate Action (Post-Plan Only) */}
+          {chatContext === "plan" && chatMessages.length > 0 && onRegeneratePlan && (
+            <div className="shrink-0 px-3 pb-2">
+              <button
+                onClick={onRegeneratePlan}
+                disabled={isGlobalBusy}
+                className="w-full cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-r from-primary/90 to-primary text-white text-xs font-bold uppercase tracking-wider py-2.5 rounded-lg shadow-sm hover:shadow-md hover:from-primary hover:to-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Zap className={cn("h-3.5 w-3.5", isGlobalBusy && "animate-pulse")} />
+                {isGlobalBusy ? "Regenerating..." : "Apply Chat to Plan"}
+              </button>
+            </div>
+          )}
 
           {/* Composer */}
           <div className="shrink-0 border-t border-border/40 p-3 bg-white">

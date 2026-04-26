@@ -308,3 +308,11 @@ class InviteExecutorsResponse(StrictModel):
     share_url: str
     email_subject: str
     email_body: str
+
+
+class ChatRegenerateRequest(StrictModel):
+    hypothesis: str = Field(..., min_length=8)
+    current_plan: ExperimentPlan
+    messages: list[ChatMessage]
+    active_section: str | None = None
+
