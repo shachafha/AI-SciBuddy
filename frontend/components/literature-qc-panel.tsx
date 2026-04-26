@@ -1,5 +1,5 @@
 import { Badge, Card } from "@/components/ui";
-import type { LiteratureQC, ReferenceRubricScore, TavilyEvidence, LiteratureReference } from "@/lib/types";
+import type { LiteratureQC, ReferenceRubricScore, TavilyEvidence, LiteratureReference, ParsedHypothesis } from "@/lib/types";
 import { ExternalLink, Loader2, Radar } from "lucide-react";
 
 const signalStyles = {
@@ -34,23 +34,86 @@ const priorityMap: Record<string, number> = {
   literature: 7,
 };
 
-function RubricMini({ score }: { score?: ReferenceRubricScore }) {
-  if (!score) {
+type MergedRef = {
+  url: string;
+  title: string;
+  sourceType: string;
+  summary: string;
+  mock: boolean;
+};
+
+function computeFrontendFallback(ref: MergedRef, parsed?: ParsedHypothesis | null): ReferenceRubricScore {
+  const text = (ref.title + " " + ref.summary).toLowerCase();
+  const getScore = (val?: string | null) => {
+    if (!val) return 0;
+    const terms = val.replace(/[-/]/g, " ").split(/\s+/).filter(t => t.length > 3);
+    if (!terms.length) return 0;
+    const hits = terms.filter(t => text.includes(t.toLowerCase())).length;
+    if (hits >= Math.max(2, Math.floor(terms.length / 2))) return 2;
+    if (hits > 0) return 1;
+    return 0;
+  };
+  
+  const intervention = getScore(parsed?.intervention);
+  const system = getScore(parsed?.system);
+  const outcome = getScore(parsed?.measurable_outcome);
+  let method = getScore(parsed?.mechanism);
+  
+  if (method === 0 && (ref.sourceType === "protocol" || ref.sourceType === "exact_hypothesis" || ref.sourceType === "similar_paper")) {
+     method = ref.sourceType === "protocol" ? 2 : 1;
+  }
+  
+  const thresh = Math.max(getScore(parsed?.threshold), getScore(parsed?.control_condition));
+  const total = intervention + system + outcome + method + thresh;
+  
+  return {
+    title: ref.title,
+    url: ref.url,
+    intervention_match: intervention,
+    system_match: system,
+    outcome_match: outcome,
+    method_protocol_match: method,
+    threshold_control_match: thresh,
+    total,
+    rationale: "Heuristic fallback score computed locally on the frontend.",
+  };
+}
+
+function RubricMini({ score, fallbackRef, parsedHypothesis }: { score?: ReferenceRubricScore, fallbackRef?: MergedRef, parsedHypothesis?: ParsedHypothesis | null }) {
+  let displayScore = score;
+  let isFrontendFallback = false;
+
+  if (!displayScore && fallbackRef) {
+    displayScore = computeFrontendFallback(fallbackRef, parsedHypothesis);
+    isFrontendFallback = true;
+  }
+
+  if (!displayScore) {
     return <div className="mt-4 text-xs italic text-muted-foreground bg-muted/20 p-3 rounded-lg border border-border/60">No rubric score available.</div>;
   }
+
+  const isHeuristic = isFrontendFallback || displayScore.rationale.toLowerCase().includes("heuristic") || displayScore.rationale.toLowerCase().includes("fallback");
+
   const parts = [
-    ["Intervention", score.intervention_match],
-    ["System", score.system_match],
-    ["Outcome", score.outcome_match],
-    ["Method", score.method_protocol_match],
-    ["Threshold", score.threshold_control_match],
+    ["Intervention", displayScore.intervention_match],
+    ["System", displayScore.system_match],
+    ["Outcome", displayScore.outcome_match],
+    ["Method", displayScore.method_protocol_match],
+    ["Threshold", displayScore.threshold_control_match],
   ];
 
   return (
     <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-4">
-      <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-3">
-        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Rubric match analysis</div>
-        <Badge className="bg-white text-foreground shadow-sm font-mono">{score.total}/10 SCORE</Badge>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Rubric match analysis</div>
+          {isHeuristic && (
+            <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[9px] uppercase font-mono shadow-sm">
+              Heuristic Fallback
+            </Badge>
+          )}
+        </div>
+        <Badge className="bg-white text-foreground shadow-sm font-mono">{displayScore.total}/10 SCORE</Badge>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
         {parts.map(([label, value]) => (
@@ -60,7 +123,7 @@ function RubricMini({ score }: { score?: ReferenceRubricScore }) {
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground bg-white/50 p-2 rounded border border-border/40 italic">{score.rationale}</p>
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground bg-white/50 p-2 rounded border border-border/40 italic">{displayScore.rationale}</p>
     </div>
   );
 }
@@ -95,14 +158,6 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
   }
 
   // Merge references and search_results
-  type MergedRef = {
-    url: string;
-    title: string;
-    sourceType: string;
-    summary: string;
-    mock: boolean;
-  };
-
   const mergedMap = new Map<string, MergedRef>();
 
   // Add references first
@@ -208,7 +263,7 @@ export function LiteratureQCPanel({ qc, loading, demo, compact }: { qc: Literatu
               </div>
               <p className="mt-4 text-sm leading-relaxed text-slate-600 italic">"{ref.summary}"</p>
               
-              <RubricMini score={scoreMatch} />
+              <RubricMini score={scoreMatch} fallbackRef={ref} parsedHypothesis={qc.parsed_hypothesis} />
             </a>
           );
         })}

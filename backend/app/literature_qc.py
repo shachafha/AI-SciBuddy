@@ -231,6 +231,16 @@ def assess_literature_qc(
     if mock and "mock" not in summary.lower():
         summary = f"{summary} Mock Tavily data is being used because live search is unavailable."
 
+    scored_urls = {score.url for score in reference_scores}
+    scored_titles = {score.title for score in reference_scores}
+
+    for result in _dedupe_results(results):
+        if result["url"] not in scored_urls and result["title"] not in scored_titles:
+            fallback_score = _heuristic_rubric([result], parsed)[0]
+            reference_scores.append(fallback_score)
+            scored_urls.add(fallback_score.url)
+            scored_titles.add(fallback_score.title)
+
     return LiteratureQC(
         novelty_signal=signal,
         confidence=round(confidence, 2),
