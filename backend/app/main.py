@@ -1,3 +1,4 @@
+import os
 import logging
 
 from dotenv import load_dotenv
@@ -40,10 +41,19 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message
 
 app = FastAPI(title="AI SciBuddy API", version="0.1.0")
 
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "")
+
+allow_origins = [
+    "http://localhost:3000",
+]
+
+if frontend_origin:
+    allow_origins.append(frontend_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_origins=allow_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
